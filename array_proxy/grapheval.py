@@ -151,6 +151,17 @@ def graph_func(func):
 
     return lambda *args, **kw: GraphNode(func, args, kw)
 
+
+def find_nodes_of_type(graph, cls):
+    """ Traverses the graph structure searching for nodes that are
+    instances of the requested class :(object):
+    """
+    res = set()
+    for arg in graph.args:
+        if isinstance(arg, cls): res.update([arg])
+        if isinstance(arg, GraphNode): res.update(find_nodes_of_type(arg, cls))
+    return res
+
 #TODO: Implement on-graph predicates: IF..ELSE, WHILE, etc.
 
 
