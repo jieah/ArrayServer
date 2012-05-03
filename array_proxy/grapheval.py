@@ -1,5 +1,5 @@
 """
-This module defines the core machinery that takes functions (or methods), 
+This module defines the core machinery that takes functions (or methods),
 and wraps them as evaluation graph nodes.
 
 This is used to build the .proxy module, which provides @graph_func-wrappped
@@ -126,6 +126,16 @@ class GraphNode(object):
                 print >> output, " "*(level+1)*4, type(arg), arg
         return
 
+    def __getstate__(self):
+        odict = self.__dict__.copy()
+        del odict['_value']
+        del odict['func']
+        return odict
+
+    def __setstate__(self, dict):
+        self.__dict__.update(dict)
+        self._value = Undefined
+
 
 def cache(node):
     """ Turns on caching on a GraphNode and returns the node """
@@ -138,7 +148,7 @@ def graph_func(func):
     value, it returns a GraphNode, with our inner function as the func,
     and any arguments we were handed as the args and kwargs
     """
-    
+
     return lambda *args, **kw: GraphNode(func, args, kw)
 
 #TODO: Implement on-graph predicates: IF..ELSE, WHILE, etc.

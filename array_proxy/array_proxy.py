@@ -16,20 +16,28 @@ import grapheval
 #    return cls(obj)
 
 class MetaArrayProxy(type):
-    pygraphmethods = ("reversed,contains,"
-        "add,sub,mul,floordir,mod,divmod,pow,lshift,rshift,"
-        "and,xor,or,div,truediv,radd,rsub,rmul,rdiv,rtruediv,"
-        "rfloordiv,rmod,rdivmod,rpow,rlshift,rrshift,rand,rxor,"
-        "ror,iadd,isub,imul,idiv,itruediv,ifloordiv,imod,ipow,"
-        "ilshift,irshift,iand,ixor,ior,neg,pos,abs,invert,complex,"
-        "lt,le,eq,ne,gt,ge,cmp").split(",")
-    pygraphmethods = ["__%s__"%n for n in pygraphmethods]
+    py_binary_graph_methods = (
+        "reversed,contains,"
+        "lt,le,eq,ne,gt,ge,cmp,"
+        "add,sub,mul,div,mod,pow,floordiv,truediv,divmod,"
+        "radd,rsub,rmul,rdiv,rmod,rpow,rfloordiv,rtruediv,rdivmod,"
+        "iadd,isub,imul,idiv,imod,ipow,ifloordiv,itruediv,"
+        "and,or,xor,lshift,rshift,"
+        "rand,ror,rxor,rlshift,rrshift,"
+        "iand,ior,ixor,ilshift,irshift"
+    ).split(",")
+    py_binary_graph_methods = ["__%s__"%n for n in py_binary_graph_methods]
+
+    py_unary_graph_methods = (
+        "abs,invert,neg,pos"
+    ).split(",")
+    py_unary_graph_methods = ["__%s__"%n for n in py_unary_graph_methods]
 
     pymethods = ("len,setitem,iter,complex,int,long,float,oct,hex,coerce,nonzero").split(",")
     pymethods = ["__%s__"%n for n in pymethods]
 
     # Array graph methods are ones that return arrays, and therefore need to be
-    # wrapped to return ArrayProxies.  
+    # wrapped to return ArrayProxies.
     #
     # Scalar graph methods are content-dependent methods that return scalars
     # from the array.  They are also wrapped to return GraphNodes, because
@@ -73,8 +81,14 @@ class MetaArrayProxy(type):
     # ArrayNode?
 
     wrapped_methods = {}
-    for name in pygraphmethods + npgraphmethods:
-        exec "wrapped_methods['%s'] = lambda obj,*a,**kw: obj._graph_call('%s',a,kw)" % (name,name) 
+    for name in npgraphmethods:
+        exec "wrapped_methods['%s'] = lambda obj,*a,**kw: obj._graph_call('%s',a,kw)" % (name,name)
+
+    for name in py_unary_graph_methods:
+        exec "wrapped_methods['%s'] = lambda obj: ArrayNode('%s', getattr(np.ndarray,'%s'), (obj,))" % (name, name, name)
+
+    for name in py_binary_graph_methods:
+        exec "wrapped_methods['%s'] = lambda obj, a: ArrayNode('%s', getattr(np.ndarray,'%s'), (obj, a))" % (name, name, name)
 
     for name in pymethods + npmethods:
         exec "wrapped_methods['%s'] = lambda obj,*a,**kw: obj._call('%s',a,kw)" % (name,name)
@@ -95,7 +109,7 @@ class BaseArrayNode(GraphNode):
     #------------------------------------------------------------------------
     # Abstract base methods
     #------------------------------------------------------------------------
-    
+
     def _graph_call(self, funcname, args, kw):
         """ Indicates that a call to the given on-graph funcname has been made,
         and gives the subclass a chance to do whatever they want.  This method
@@ -138,7 +152,7 @@ class BaseArrayNode(GraphNode):
 
     def __getattribute__(self, name):
         if name in MetaArrayProxy.npdataattrs:
-            return self._get_np_attribute(name)
+            return self._get_np_attr(name)
         elif name in MetaArrayProxy.npshapeattrs:
             # If the instance declares a specially-named getter method for
             # one of the shape-related attributes, then call it; otherwise,
@@ -203,6 +217,10 @@ class ArrayProxy(BaseArrayNode):
     def _size(self):
         return self._array.size
 
+    def __setstate__(self, dict):
+        super(ArrayProxy, self).__setstate__(dict)
+        self.func = None
+
     #------------------------------------------------------------------------
     # GraphNode interface
     #------------------------------------------------------------------------
@@ -259,11 +277,19 @@ class ArrayNode(BaseArrayNode):
         return getattr(val,funcname)(*args, **kw)
 
     def _get_np_attr(self, attrname):
-        # Convention: for attributes, instead of a funcname, use a 
+        # Convention: for attributes, instead of a funcname, use a
         # "." in front of the attribute name
         node = ArrayNode("." + attrname, getattr, (self, attrname))
         self.add_listener(node)
         return node
+
+    def __setstate__(self, dict):
+        super(ArrayNode, self).__setstate__(dict)
+        try:
+            self.func = getattr(np.ndarray, self.funcname)
+        except:
+            self.func = getattr(np, self.funcname)
+
 
     #------------------------------------------------------------------------
     # ArrayNode interface
@@ -287,3 +313,22 @@ class ArrayNode(BaseArrayNode):
         pass
 
 
+class BlazeArrayProxy(ArrayProxy):
+    """ A Python-level class that wraps a blaze data source.  All the methods
+    of an ndarray are present here, and most will return an ArrayNode, when called
+    on a Blaze server node that replicates the data mapping to the Blaze URL.
+
+    The ArrayProxy presents a generator array interface that sits on top of an
+    actual numpy array.
+    """
+
+    def __init__(self, url):
+        """ Creates a new BlazeArrayProxy, given a Blaze URL as a parent
+        value.
+        """
+        super(BlazeArrayProxy,self).__init__(None)
+        self._url = url
+
+    def __setstate__(self, dict):
+        super(BlazeArrayProxy, self).__setstate__(dict)
+        self.func = None
