@@ -3,18 +3,6 @@ import numpy as np
 from grapheval import GraphNode
 import grapheval
 
-#def create_proxy_class(obj):
-#    """ Creates a new class which proxies all calls to the given object.  Only
-#    instance methods which appear on the object and class methods on its class
-#    at the time of this call are proxied.
-#    """
-#    # This is kind of pointless because introspecting instances of extension
-#    # types doesn't seem to yield a way to generate unbound methods...
-
-#def create_proxy(obj):
-#    cls = create_proxy_class(obj)
-#    return cls(obj)
-
 class MetaArrayProxy(type):
     py_binary_graph_methods = (
         "reversed,contains,"
