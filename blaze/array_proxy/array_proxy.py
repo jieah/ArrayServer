@@ -315,7 +315,7 @@ class BlazeArrayProxy(ArrayProxy):
         value.
         """
         super(BlazeArrayProxy,self).__init__(None)
-        self._url = url
+        self.url = url
 
     def __setstate__(self, dict):
         super(BlazeArrayProxy, self).__setstate__(dict)

@@ -1,3 +1,5 @@
+from blaze.array_proxy import array_proxy
+from blaze.array_proxy import grapheval
 from threading import Thread
 import time
 import zmq
@@ -72,6 +74,7 @@ class Broker(Thread):
         control_type = msgobj['msgtype'].partition(":")[-1]
         if control_type == 'contentreport':
             blazeconfig.merge_configs(self.metadata, data[0])
+            log.info("receivied content report from: %s" % clientid)
 
     def handle_heartbeat(self, address, msg):
         if msg[0] in [PPP_READY, PPP_HEARTBEAT]:
@@ -96,6 +99,7 @@ class Broker(Thread):
                     self.ph.deserialize_data(datastrs)
                 )
             else:
+                # for now just forward backend response directly back to client
                 self.frontend.send_multipart(msg)
 
     def handle_frontend(self, frames):
@@ -154,6 +158,7 @@ class BlazeBroker(Broker, router.RPCRouter):
             self.route(msgobj, datastrs, frames)
 
     def route_get(self, path, data_slice=None, rawmessage=None):
+        log.info("route_get")
         node = self.metadata.get_node(path)
         if node['type'] != 'group':
             source = node['sources'][0]
@@ -171,8 +176,29 @@ class BlazeBroker(Broker, router.RPCRouter):
                 )
             self.frontend.send_multipart(messages)
 
-    def route_eval(self):
-        pass
+    def route_eval(self, datastrs, rawmessage=None):
+        log.info("route_eval")
+        graph = self.ph.deserialize_data(datastrs)[0]
+        array_nodes = grapheval.find_nodes_of_type(graph, array_proxy.BlazeArrayProxy)
+        if len(array_nodes) == 0:
+            # There are no blaze sources, simply farm this out to a random node
+            node = self.nodes.values[0]   # TODO some sort of fair queuing
+            rawmessage.insert(0, node.address)
+            log.info('sending bare eval to backend %s' % node)
+            self.backend.send_multipart(rawmessage)
+        else:
+            sources = []
+            for node in array_nodes:
+                sources += self.metadata.get_node(node.url)['sources']
+            servers = set([source['servername'] for source in sources])
+            if len(servers) == 1:
+                node = self.nodes[servers.pop()]
+                if self.nodes.has_key(node.address):
+                    rawmessage.insert(0, node.address)
+                    log.info('sending blaze source eval to backend %s' % node)
+                    self.backend.send_multipart(rawmessage)
+
+
 
 
 

@@ -56,12 +56,12 @@ class RPC(object):
     with all the same parameters.  we will not execute the function,
     if 'can_dosomething' exists AND it returns False
     """
-    authorized_functions = None    
+    authorized_functions = None
     def __init__(self, protocol_helper=None):
         if protocol_helper is None:
             protocol_helper = protocol.ProtocolHelper()
         self.ph = protocol_helper
-        
+
     def get_rpc_response(self, msgobj, dataobj):
         """ take the request and call the function specified, if we're allowed to.
         parameters to this are PYTHON objects, we assume they are already
@@ -101,7 +101,7 @@ class RPC(object):
 class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
     socket_type = zmq.DEALER
     do_bind = False
-    def __init__(self, zmqaddr, identity, rpc, interval=1000.0, 
+    def __init__(self, zmqaddr, identity, rpc, interval=1000.0,
                  protocol_helper=None, ctx=None, *args, **kwargs):
         super(ZParanoidPirateRPCServer, self).__init__(
             ctx=ctx , *args, **kwargs)
@@ -137,7 +137,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
 
     def handle_message(self, envelope, client, msgid, msgobj, datastrs):
         if msgobj['msgtype'] == 'rpcrequest':
-            log.debug("handlerpc")        
+            log.info("handle_message")
             self.handle_rpc(envelope, client, msgid, msgobj, datastrs)
 
     def handle_rpc(self, envelope, client, msgid, msgobj, datastrs):
@@ -155,12 +155,11 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         #we don't know what we're getting
         if self.liveness <= 0:
             return self.reconnect()
-        
+
         socks = dict(self.poller.poll(timeout=self.interval))
         if self.socket in socks:
             self.liveness = constants.HEARTBEAT_LIVENESS
             messages = self.socket.recv_multipart()
-            log.debug('rpc got  %s', messages)
             if len(messages) == 1 and messages[0] == constants.PPP_HEARTBEAT:
                 log.debug('rpc got heartbeat')
                 pass
@@ -173,11 +172,11 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
                     self.envelopes[msgid] = envelope
                     self.handle_message(envelope, client, msgid, msgobj, datastrs)
                 except Exception as e:
-                    log.exception(e)                    
+                    log.exception(e)
                     if msgid in self.envelopes[msgid] : self.envelopes.pop(msgid)
         if self.thread_socket in socks:
             messages = self.thread_socket.recv_multipart()
-            log.debug("rpc sending from worker %s", messages)
+            log.info("node sending from worker %s", messages)
             msgid = messages[1]
             response = self.ph.pack_envelope(self.envelopes[msgid], messages)
             self.socket.send_multipart(response)

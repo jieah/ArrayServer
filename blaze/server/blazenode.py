@@ -11,14 +11,14 @@ class BlazeRPC(server.RPC):
     def __init__(self, config, protocol_helper=None):
         self.metadata = config
         super(BlazeRPC, self).__init__(protocol_helper=protocol_helper)
-        
+
     def get(self, path, data_slice=None, data=None):
         #kwarg data, bc of rpc
         log.debug("called get")
         node = self.metadata.get_node(path)
         if node['type'] != 'group':
             return self.get_data(node, data_slice=data_slice)
-        
+
     def get_data(self, node, data_slice=None):
         response = {'type' : node['type']}
         source = node['sources'][0]
@@ -29,9 +29,9 @@ class BlazeRPC(server.RPC):
         else:
             data_slice = slice(*data_slice)
             return response, [arr[data_slice]]
-        
-        
-    
+
+
+
 class BlazeNode(server.ZParanoidPirateRPCServer):
     def __init__(self, zmq_addr, identity, config, interval=1000.0,
                  protocol_helper=None, ctx=None):
@@ -44,14 +44,16 @@ class BlazeNode(server.ZParanoidPirateRPCServer):
 
     def connect(self):
         super(BlazeNode, self).connect()
+        log.info("blaze node '%s' connecting" % self.identity)
         messages = self.ph.pack_blaze(
             self.identity,
             str(uuid.uuid4()),
             {'msgtype' : 'control:contentreport'},
             [self.metadata.create_inmemory_config()])
         self.socket.send_multipart(messages)
-        
-        
+        log.info("blaze node '%s' sent content report" % self.identity)
+
+
 if __name__ == "__main__":
     import sys
     import shelve
@@ -64,4 +66,4 @@ if __name__ == "__main__":
     config = blazeconfig.BlazeConfig(pathmap, reversemap)
     node = BlazeNode(addr, servername, config)
     node.run()
-    
+
