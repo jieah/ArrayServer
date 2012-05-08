@@ -19,7 +19,7 @@ pathmapfile = 'pathamp.db'
 reversemapfile = 'reversemap.db'
 servername = 'myserver'
 blazeprefix = '/hugodata'
-datapath = 'tests/gold.hdf5'
+datapath = 'blaze/server/tests/gold.hdf5'
 frontaddr = 'tcp://127.0.0.1:5555'
 backaddr = 'tcp://127.0.0.1:5556'
 
