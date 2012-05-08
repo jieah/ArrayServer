@@ -6,6 +6,9 @@ log = logging.getLogger(__name__)
 import collections
 import blazeconfig
 import uuid
+from blaze.array_proxy import array_proxy
+from blaze.array_proxy import grapheval
+
 
 class BlazeRPC(server.RPC):
     def __init__(self, config, protocol_helper=None):
@@ -30,7 +33,27 @@ class BlazeRPC(server.RPC):
             data_slice = slice(*data_slice)
             return response, [arr[data_slice]]
 
+    def eval(self, data):
+        log.info("called eval")
+        graph = data[0]
+        array_nodes = grapheval.find_nodes_of_type(graph, array_proxy.BlazeArrayProxy)
+        for node in array_nodes:
+            # TODO we need to handle multiple physical sources
+            source = self.metadata.get_node(node.url)['sources'][0]
+            source_type = source['type']
+            if source_type == 'hdf5':
+                arr = tables.openFile(source['filepath']).getNode(source['localpath'])
+                node.set_array(arr[:])
+            else:
+                return self.ph.pack_rpc(
+                    self.ph.error_obj('encountered unknown blaze array type %s' % source_type), []
+                )
 
+        value = graph.eval()
+
+        response = {'type' : "array"}
+        response['shape'] = [int(x) for x in value.shape]
+        return response, [value]
 
 class BlazeNode(server.ZParanoidPirateRPCServer):
     def __init__(self, zmq_addr, identity, config, interval=1000.0,
