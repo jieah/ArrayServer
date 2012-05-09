@@ -128,7 +128,7 @@ class BlazeConfig(object):
             self.reversemap[sourcekey] = [path]
         else:
             paths = self.reversemap[sourcekey]
-            if paths not in path:
+            if path not in paths:
                 paths.append(path)
             self.reversemap[sourcekey] = paths
             
@@ -142,10 +142,24 @@ class BlazeConfig(object):
         for key in searchkeys:
             deps.update(self.reversemap[key])
         return deps
-    
+
+    def remove(self, servername, filepath=None, localpath=None):
+        affected_paths = self.get_dependencies(
+            servername, filepath=filepath, localpath=localpath)
+        sourcekey = self.sourcekey(servername, filepath, localpath)
+        for path in affected_paths:
+            sources = self.get_node(path)['sources']
+            to_remove = [x for x in sources if sourcekey in \
+                         self.sourcekey(x['servername'], x['filepath'], x['localpath'])]
+            for source in to_remove:
+                self.remove_source(path, source)
+        sourcekey = self.sourcekey(servername, filepath, localpath)
+        searchkeys = [x for x in self.reversemap.keys() if x.startswith(sourcekey)]
+        
     def remove_source(self, path, source):
         node = self.pathmap.get(path)
         newsources = [x for x in node['sources'] if x != source]
+        self.remove_reverse_map(path, source)
         if len(newsources) > 0:
             node['sources'] = newsources
             self.pathmap[path] = node

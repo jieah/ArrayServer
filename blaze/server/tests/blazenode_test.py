@@ -87,6 +87,14 @@ class RouterTestCase(unittest.TestCase):
         assert node['sources'][0]['localpath'] == '/20100217/names'
         assert '/hugodata/20100217/names' in self.broker.metadata.get_dependencies('myserver')
 
+    def test_reconnect(self):
+        self.rpcserver.reconnect()
+        time.sleep(1) #let reconnects occur
+        node = self.broker.metadata.get_node('/hugodata/20100217/names')
+        assert node['shape'] ==  (3,)
+        assert node['sources'][0]['localpath'] == '/20100217/names'
+        assert '/hugodata/20100217/names' in self.broker.metadata.get_dependencies('myserver')
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -48,7 +48,7 @@ class InMemoryConfigTestCase(unittest.TestCase):
         blazeconfig.generate_config_hdf5('myserver', '/hugodata',
                                          hdfpath, self.config)
         node = self.config.get_node('/hugodata/20100217/names')
-        assert node['shape'] ==  (3,)
+        assert node['shape'] == (3,)
         assert node['sources'][0]['localpath'] == '/20100217/names'
         assert '/hugodata/20100217/names' in self.config.get_dependencies('myserver')
     def test_remove(self):
@@ -69,7 +69,8 @@ class InMemoryConfigTestCase(unittest.TestCase):
         self.config.add_source("/path/here/myset", sourceobj)
         self.config.remove_source("/path/here/myset", sourceobj)
         assert self.config.get_node("/path/here/myset") is None
-
+        
+    
 class PersistentConfigTestCase(InMemoryConfigTestCase):
     def setUp(self):
         testroot = os.path.abspath(os.path.dirname(__file__))

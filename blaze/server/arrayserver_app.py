@@ -73,9 +73,15 @@ class Broker(Thread):
     def handle_control(self, clientid, msgobj, data):
         control_type = msgobj['msgtype'].partition(":")[-1]
         if control_type == 'contentreport':
+            self.metadata.remove(clientid)
             blazeconfig.merge_configs(self.metadata, data[0])
             log.info("receivied content report from: %s" % clientid)
-
+            
+    def purge(self):
+        purged = self.nodes.purge()
+        for addr in purged:
+            self.metadata.remove(addr)
+        
     def handle_heartbeat(self, address, msg):
         if msg[0] in [PPP_READY, PPP_HEARTBEAT]:
             if not self.nodes.has_key(address):
@@ -137,10 +143,8 @@ class Broker(Thread):
                 if not frames: break
                 self.handle_frontend(frames)
 
-            self.nodes.purge()
-
+            self.purge()
             self.send_heartbeat()
-
         self.frontend.close()
         self.backend.close()
 
