@@ -133,7 +133,11 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         self.socket.send(constants.PPP_READY)
 
     def handle_heartbeat(self):
-        self.socket.send(constants.PPP_HEARTBEAT)
+        try:
+            self.socket.send(constants.PPP_HEARTBEAT, flags=zmq.NOBLOCK)
+            self.last_heartbeat = time.time()            
+        except zmq.ZMQError as e:
+            log.debug('HEARTBEAT FAILED')
 
     def handle_message(self, envelope, client, msgid, msgobj, datastrs):
         if msgobj['msgtype'] == 'rpcrequest':
@@ -174,6 +178,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
                 except Exception as e:
                     log.exception(e)
                     if msgid in self.envelopes[msgid] : self.envelopes.pop(msgid)
+                    
         if self.thread_socket in socks:
             messages = self.thread_socket.recv_multipart()
             log.debug("node sending from worker %s", messages)
@@ -185,5 +190,5 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
 
         if time.time() > self.last_heartbeat + constants.HEARTBEAT_INTERVAL:
             self.handle_heartbeat()
-            self.last_heartbeat = time.time()
+
 
