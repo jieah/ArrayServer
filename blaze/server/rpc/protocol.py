@@ -3,7 +3,7 @@ import simplejson
 import threading
 import operator
 import zmq
-import constants
+import blaze.server.constants as constants
 import logging
 import time
 import cPickle as pickle
