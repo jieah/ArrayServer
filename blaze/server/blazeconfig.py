@@ -142,7 +142,28 @@ class BlazeConfig(object):
         for key in searchkeys:
             deps.update(self.reversemap[key])
         return deps
+    
+    def remove_source(self, path, source):
+        node = self.pathmap.get(path)
+        newsources = [x for x in node['sources'] if x != source]
+        if len(newsources) > 0:
+            node['sources'] = newsources
+            self.pathmap[path] = node
+        else:
+            del self.pathmap[path]
         
+    def remove_reverse_map(self, path, source):
+        sourcekey = self.sourcekey(source['servername'],
+                                   source['filepath'],
+                                   source['localpath'])
+        node = self.reversemap.get(sourcekey)
+        if node is not None:
+            paths = self.reversemap[sourcekey]
+            paths = [x for x in paths if paths != path]
+            if len(paths) == 0:
+                del self.reversemap[sourcekey] 
+        
+    
 def generate_config_hdf5(servername, blazeprefix, datapath, config):
     assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
     f = tables.openFile(datapath)

@@ -30,13 +30,11 @@ class InMemoryConfigTestCase(unittest.TestCase):
         node = self.config.get_node("/path/here/myset")
         assert node['dtype'] == a.dtype
         assert node['shape'] == a.shape
-        self.config.add_source("/path/here/myset",
-            {'servername' : 'server1',
-             'type' : 'hdf5',
-             'filepath' : '/data/bin/data',
-             'shardinfo' : {'shardtype' : 'noshards'},
-             'localpath' : '/datasets/scan'})
-        
+        sourceobj = self.config.source_obj(
+            'server1', 'hdf5', '/data/bin/data',
+            {'shardtype' : 'noshards'},
+            '/datasets/scan')
+        self.config.add_source("/path/here/myset", sourceobj)
         assert '/path/here/myset' in self.config.get_dependencies('server1')
         assert '/path/here/myset' in self.config.get_dependencies('server1',
                                                                   '/data/bin/data')
@@ -53,6 +51,24 @@ class InMemoryConfigTestCase(unittest.TestCase):
         assert node['shape'] ==  (3,)
         assert node['sources'][0]['localpath'] == '/20100217/names'
         assert '/hugodata/20100217/names' in self.config.get_dependencies('myserver')
+    def test_remove(self):
+        a = np.arange(200)
+        appendable = False
+        sources = []
+        sourceobj = self.config.source_obj(
+            'server1', 'hdf5', '/data/bin/data',
+            {'shardtype' : 'noshards'},
+            '/datasets/scan')
+        datasetobj = self.config.array_obj(appendable,
+                                           a.dtype,
+                                           a.shape,
+                                           {'shardtype' : 'noshards'},
+                                           sources)
+        self.config.create_dataset("/path/here/myset",
+                                   datasetobj)
+        self.config.add_source("/path/here/myset", sourceobj)
+        self.config.remove_source("/path/here/myset", sourceobj)
+        assert self.config.get_node("/path/here/myset") is None
 
 class PersistentConfigTestCase(InMemoryConfigTestCase):
     def setUp(self):
