@@ -1,7 +1,7 @@
 import os
 import sys
 
-from setuptools import Command, setup
+from setuptools import Command, setup, find_packages
 from distutils.command.build_ext import build_ext
 from traceback import print_exc
 
@@ -32,16 +32,7 @@ __version__ = (0, 0, 1)
 setup(
     name = 'blaze',
     version = '.'.join([str(x) for x in __version__]),
-    packages = [
-        'blaze',
-        'blaze.array_proxy',
-        'blaze.array_proxy.tests',
-        'blaze.server',
-        'blaze.server.rpc',
-        'blaze.server.scripts',
-        'blaze.server.tests',
-        'blaze.tests'
-    ],
+    packages = find_packages(),
     package_data={'blaze.server.tests':['gold.hdf5']},
     entry_points = {
         'console_scripts': [
