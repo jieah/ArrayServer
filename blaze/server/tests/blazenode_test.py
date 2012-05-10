@@ -14,12 +14,10 @@ import test_utils
 import os
 import shelve
 
-import rpc
-import rpc.client
-import rpc.server
-import arrayserver_app as arrayserver
-import blazenode
-import blazeconfig
+import blaze.server.rpc as rpc
+from blaze.server.blazebroker import BlazeBroker
+from blaze.server.blazenode import BlazeNode
+from blaze.server.blazeconfig import BlazeConfig, InMemoryMap, generate_config_hdf5
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -33,18 +31,16 @@ class RouterTestCase(unittest.TestCase):
         testroot = os.path.abspath(os.path.dirname(__file__))
         hdfpath = os.path.join(testroot, 'gold.hdf5')
         servername = 'myserver'
-        self.config = blazeconfig.BlazeConfig(blazeconfig.InMemoryMap(),
-                                              blazeconfig.InMemoryMap())
-        blazeconfig.generate_config_hdf5(servername, '/hugodata',
-                                         hdfpath, self.config)
-        broker = arrayserver.BlazeBroker(frontaddr, backaddr)
+        self.config = BlazeConfig(InMemoryMap(), InMemoryMap())
+        generate_config_hdf5(servername, '/hugodata', hdfpath, self.config)
+        broker = BlazeBroker(frontaddr, backaddr)
         broker.start()
         self.broker = broker
-        rpcserver = blazenode.BlazeNode(backaddr, servername, self.config)
+        rpcserver = BlazeNode(backaddr, servername, self.config)
         rpcserver.start()
         self.rpcserver = rpcserver
         test_utils.wait_until(lambda : len(broker.nodes) > 0)
-        
+
     def tearDown(self):
         if hasattr(self, 'rpcserver'):
             self.rpcserver.kill = True
@@ -57,7 +53,7 @@ class RouterTestCase(unittest.TestCase):
             def done():
                 return self.broker.frontend.closed and self.broker.backend.closed
             test_utils.wait_until(done)
-            print 'broker closed!'            
+            print 'broker closed!'
         #we need this to wait for sockets to close, really annoying
         time.sleep(1.0)
 
@@ -73,14 +69,14 @@ class RouterTestCase(unittest.TestCase):
         data = data[0]
         assert len(data) == 1
         assert 'GDX' in data
-        
+
         responseobj, data = rpcclient.rpc('get', '/hugodata/20100217')
 
         assert responseobj['type'] == 'group'
         assert 'names' in responseobj['children']
         assert 'prices' in responseobj['children']
         assert 'dates' in responseobj['children']
-        
+
     def test_connect(self):
         node = self.broker.metadata.get_node('/hugodata/20100217/names')
         assert node['shape'] ==  (3,)
@@ -98,4 +94,4 @@ class RouterTestCase(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-    
+

@@ -2,8 +2,6 @@ import os
 import sys
 
 from setuptools import Command, setup, find_packages
-from distutils.command.build_ext import build_ext
-from traceback import print_exc
 
 try:
     import nose
@@ -40,7 +38,7 @@ setup(
             'bnode = blaze.server.scripts.node:main',
         ],
     },
-    cmdclass = {'build_ext': build_ext, 'test': TestCommand},
+    cmdclass = {'test': TestCommand},
     author = 'Continuum Analytics',
     author_email = '',
     url = '',

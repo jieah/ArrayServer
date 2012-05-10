@@ -9,7 +9,7 @@ import argparse
 import logging
 import shelve
 
-from arrayserver_app import BlazeBroker
+from blaze.server.blazebroker import BlazeBroker
 
 def main():
 

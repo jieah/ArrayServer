@@ -1,5 +1,5 @@
 import unittest
-import blazeconfig
+import blaze.server.blazeconfig as blazeconfig
 import shelve
 import os
 import numpy as np
@@ -44,7 +44,7 @@ class InMemoryConfigTestCase(unittest.TestCase):
     def from_hdf5_test(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
         hdfpath = os.path.join(testroot, 'gold.hdf5')
-        
+
         blazeconfig.generate_config_hdf5('myserver', '/hugodata',
                                          hdfpath, self.config)
         node = self.config.get_node('/hugodata/20100217/names')
@@ -69,8 +69,8 @@ class InMemoryConfigTestCase(unittest.TestCase):
         self.config.add_source("/path/here/myset", sourceobj)
         self.config.remove_source("/path/here/myset", sourceobj)
         assert self.config.get_node("/path/here/myset") is None
-        
-    
+
+
 class PersistentConfigTestCase(InMemoryConfigTestCase):
     def setUp(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
@@ -80,7 +80,7 @@ class PersistentConfigTestCase(InMemoryConfigTestCase):
         self.reversemap = shelve.open(self.reversemapfname, 'c')
         self.config = blazeconfig.BlazeConfig(self.pathmap,
                                               self.reversemap)
-        
+
     def tearDown(self):
         os.remove(self.pathmapfname)
         os.remove(self.reversemapfname)

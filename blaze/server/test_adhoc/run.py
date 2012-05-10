@@ -7,7 +7,7 @@ import zmq
 
 import blaze.server.blazeconfig as blazeconfig
 import blaze.server.blazenode as blazenode
-import blaze.server.arrayserver_app as arrayserver_app
+import blaze.server.blazebroker as blazebroker
 import shelve
 import sys
 import os
@@ -44,8 +44,8 @@ def run_node():
 
 def run_broker():
     log.debug("starting broker")
-    b = arrayserver_app.BlazeBroker(frontaddr, backaddr)
+    b = blazebroker.BlazeBroker(frontaddr, backaddr)
     b.start()
-    
+
 run_node()
 run_broker()
