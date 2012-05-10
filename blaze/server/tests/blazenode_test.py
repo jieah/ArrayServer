@@ -15,6 +15,7 @@ import os
 import shelve
 
 import blaze.server.rpc as rpc
+import blaze.server.rpc.client as client
 from blaze.server.blazebroker import BlazeBroker
 from blaze.server.blazenode import BlazeNode
 from blaze.server.blazeconfig import BlazeConfig, InMemoryMap, generate_config_hdf5
@@ -39,7 +40,7 @@ class RouterTestCase(unittest.TestCase):
         rpcserver = BlazeNode(backaddr, servername, self.config)
         rpcserver.start()
         self.rpcserver = rpcserver
-        test_utils.wait_until(lambda : len(broker.nodes) > 0)
+        test_utils.wait_until(lambda : len(broker.metadata.pathmap) > 1)
 
     def tearDown(self):
         if hasattr(self, 'rpcserver'):
@@ -58,7 +59,7 @@ class RouterTestCase(unittest.TestCase):
         time.sleep(1.0)
 
     def test_route(self):
-        rpcclient = rpc.client.ZDealerRPCClient(frontaddr)
+        rpcclient = client.ZDealerRPCClient(frontaddr)
         rpcclient.connect()
         responseobj, data = rpcclient.rpc('get', '/hugodata/20100217/names')
         data = data[0]
