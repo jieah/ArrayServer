@@ -3,11 +3,11 @@ import argparse
 import logging
 import shelve
 
-#import gevent
-#import gevent.monkey
-#gevent.monkey.patch_all()
-#import gevent_zeromq
-#gevent_zeromq.monkey_patch()
+import gevent
+import gevent.monkey
+gevent.monkey.patch_all()
+import gevent_zeromq
+gevent_zeromq.monkey_patch()
 
 from arrayserver_app import BlazeBroker
 
@@ -38,5 +38,5 @@ def main():
         "tcp://%s:%d" % (args.address, args.frontend),
         "tcp://%s:%d" % (args.address, args.backend)
     )
-    broker.start()
+    broker.run()
 
