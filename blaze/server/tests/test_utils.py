@@ -6,7 +6,7 @@ def wait_until(func, timeout=1.0, interval=0.01):
     while True:
         if func():
             return True
-        if (time.time() - st) > interval:
+        if (time.time() - st) > timeout:
             return False
         time.sleep(interval)
 
