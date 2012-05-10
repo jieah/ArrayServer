@@ -5,9 +5,9 @@ import gevent_zeromq
 gevent_zeromq.monkey_patch()
 import zmq
 
-import blazeconfig
-import blazenode
-import arrayserver_app
+import blaze.server.blazeconfig as blazeconfig
+import blaze.server.blazenode as blazenode
+import blaze.server.arrayserver_app as arrayserver_app
 import shelve
 import sys
 import os
