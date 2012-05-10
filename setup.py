@@ -1,7 +1,7 @@
 import os
 import sys
 
-from distutils.core import Command, setup
+from setuptools import Command, setup
 from distutils.command.build_ext import build_ext
 from traceback import print_exc
 
@@ -38,10 +38,17 @@ setup(
         'blaze.array_proxy.tests',
         'blaze.server',
         'blaze.server.rpc',
+        'blaze.server.scripts',
         'blaze.server.tests',
         'blaze.tests'
     ],
     package_data={'blaze.server.tests':['gold.hdf5']},
+    entry_points = {
+        'console_scripts': [
+            'bbroker = blaze.server.scripts.broker:main',
+            'bnode = blaze.server.scripts.node:main',
+        ],
+    },
     cmdclass = {'build_ext': build_ext, 'test': TestCommand},
     author = 'Continuum Analytics',
     author_email = '',
