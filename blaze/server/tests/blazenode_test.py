@@ -13,12 +13,16 @@ import time
 import test_utils
 import os
 import shelve
+import tables
 
 import blaze.server.rpc as rpc
 import blaze.server.rpc.client as client
 from blaze.server.blazebroker import BlazeBroker
 from blaze.server.blazenode import BlazeNode
 from blaze.server.blazeconfig import BlazeConfig, InMemoryMap, generate_config_hdf5
+from blaze.array_proxy.array_proxy import BlazeArrayProxy
+import blaze.array_proxy.npproxy as npp
+
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -30,10 +34,10 @@ frontaddr = "inproc://#2"
 class RouterTestCase(unittest.TestCase):
     def setUp(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
-        hdfpath = os.path.join(testroot, 'gold.hdf5')
+        self.hdfpath = os.path.join(testroot, 'gold.hdf5')
         servername = 'myserver'
         self.config = BlazeConfig(InMemoryMap(), InMemoryMap())
-        generate_config_hdf5(servername, '/hugodata', hdfpath, self.config)
+        generate_config_hdf5(servername, '/hugodata', self.hdfpath, self.config)
         broker = BlazeBroker(frontaddr, backaddr)
         broker.start()
         self.broker = broker
@@ -58,7 +62,21 @@ class RouterTestCase(unittest.TestCase):
         #we need this to wait for sockets to close, really annoying
         time.sleep(1.0)
 
-    def test_route(self):
+    def test_connect(self):
+        node = self.broker.metadata.get_node('/hugodata/20100217/names')
+        assert node['shape'] ==  (3,)
+        assert node['sources'][0]['localpath'] == '/20100217/names'
+        assert '/hugodata/20100217/names' in self.broker.metadata.get_dependencies('myserver')
+
+    def test_reconnect(self):
+        self.rpcserver.reconnect()
+        time.sleep(1) #let reconnects occur
+        node = self.broker.metadata.get_node('/hugodata/20100217/names')
+        assert node['shape'] ==  (3,)
+        assert node['sources'][0]['localpath'] == '/20100217/names'
+        assert '/hugodata/20100217/names' in self.broker.metadata.get_dependencies('myserver')
+
+    def test_get(self):
         rpcclient = client.ZDealerRPCClient(frontaddr)
         rpcclient.connect()
         responseobj, data = rpcclient.rpc('get', '/hugodata/20100217/names')
@@ -78,20 +96,20 @@ class RouterTestCase(unittest.TestCase):
         assert 'prices' in responseobj['children']
         assert 'dates' in responseobj['children']
 
-    def test_connect(self):
-        node = self.broker.metadata.get_node('/hugodata/20100217/names')
-        assert node['shape'] ==  (3,)
-        assert node['sources'][0]['localpath'] == '/20100217/names'
-        assert '/hugodata/20100217/names' in self.broker.metadata.get_dependencies('myserver')
+    def test_eval_with_hdf5_sources(self):
+        rpcclient = client.ZDealerRPCClient(frontaddr)
+        rpcclient.connect()
+        x = BlazeArrayProxy('/hugodata/20100217/prices')
+        y = BlazeArrayProxy('/hugodata/20100218/prices')
+        z = npp.sin((x-y)**3)
+        responseobj, data = rpcclient.rpc('eval', data=[z])
+        assert responseobj['shape'] == [1561, 3]
+        assert responseobj['type'] == 'array'
 
-    def test_reconnect(self):
-        self.rpcserver.reconnect()
-        time.sleep(1) #let reconnects occur
-        node = self.broker.metadata.get_node('/hugodata/20100217/names')
-        assert node['shape'] ==  (3,)
-        assert node['sources'][0]['localpath'] == '/20100217/names'
-        assert '/hugodata/20100217/names' in self.broker.metadata.get_dependencies('myserver')
-
+        xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]
+        yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
+        zz = npp.sin((xx-yy)**3)
+        assert (zz == data[0]).all()
 
 if __name__ == "__main__":
     unittest.main()

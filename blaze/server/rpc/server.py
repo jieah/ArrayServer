@@ -201,7 +201,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
 
         if self.thread_socket in socks:
             messages = self.thread_socket.recv_multipart()
-            log.debug("node sending from worker %s", messages)
+            log.debug("node sending from worker")
             msgid = messages[1]
             response = self.ph.pack_envelope(self.envelopes[msgid], messages)
             self.socket.send_multipart(response)
