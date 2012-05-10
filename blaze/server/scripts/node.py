@@ -1,13 +1,13 @@
 
-import argparse
-import logging
-import shelve
-
 import gevent
 import gevent.monkey
 gevent.monkey.patch_all()
 import gevent_zeromq
 gevent_zeromq.monkey_patch()
+
+import argparse
+import logging
+import shelve
 
 from blaze.server.blazeconfig import BlazeConfig
 from blaze.server.blazenode import BlazeNode
