@@ -65,9 +65,7 @@ class BlazeNode(server.ZParanoidPirateRPCServer):
             protocol_helper=protocol_helper,
             ctx=ctx)
 
-    def connect(self):
-        super(BlazeNode, self).connect()
-        log.info("blaze node '%s' connecting" % self.identity)
+    def post_connect(self):
         messages = self.ph.pack_blaze(
             self.identity,
             str(uuid.uuid4()),

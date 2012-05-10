@@ -13,6 +13,8 @@ import protocol
 import common
 
 
+THREAD_ADDRESS = 'inproc://worker'
+
 class ZMQWorker(threading.Thread):
 
     def __init__(self, rpc, ctx, ph,
@@ -29,7 +31,7 @@ class ZMQWorker(threading.Thread):
 
     def run(self, *args, **kwargs):
         socket = self.ctx.socket(zmq.PUSH)
-        socket.connect('inproc://foo')
+        socket.connect(THREAD_ADDRESS)
         dataobjs = self.ph.deserialize_data(self.datastrs)
         responseobj, dataobjs = self.rpc.get_rpc_response(self.msgobj, dataobjs)
         messages = self.ph.pack_blaze(self.clientid, self.msgid,
@@ -101,7 +103,7 @@ class RPC(object):
 class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
     socket_type = zmq.DEALER
     do_bind = False
-    def __init__(self, zmqaddr, identity, rpc, interval=1000.0,
+    def __init__(self, zmqaddr, identity, rpc, interval=1000,
                  protocol_helper=None, ctx=None, *args, **kwargs):
         super(ZParanoidPirateRPCServer, self).__init__(
             ctx=ctx , *args, **kwargs)
@@ -118,10 +120,11 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         self.workers = {}
         self.envelopes = {}
         self.kill = False
+        self.was_unconnected = True
 
     def run(self):
         self.connect()
-        self.thread_socket.bind("inproc://foo")
+        self.thread_socket.bind(THREAD_ADDRESS)
         self.poller.register(self.thread_socket, zmq.POLLIN)
         while not self.kill:
             self.run_once()
@@ -132,10 +135,14 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         super(ZParanoidPirateRPCServer, self).connect()
         self.socket.send(constants.PPP_READY)
 
+    def post_connect(self):
+        pass
+
     def handle_heartbeat(self):
         try:
             self.socket.send(constants.PPP_HEARTBEAT, flags=zmq.NOBLOCK)
-            self.last_heartbeat = time.time()            
+            self.last_heartbeat = time.time()
+            log.debug('heartbeat sent')
         except zmq.ZMQError as e:
             log.debug('HEARTBEAT FAILED')
 
@@ -155,17 +162,21 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         self.socket.send_multipart(messages)
 
     def run_once(self):
-        #the follow code must be wrapped in an exception handler
-        #we don't know what we're getting
-        if self.liveness <= 0:
-            return self.reconnect()
 
-        socks = dict(self.poller.poll(timeout=self.interval))
-        if self.socket in socks:
+        socks = dict(self.poller.poll(timeout=constants.HEARTBEAT_INTERVAL*1000))
+
+        if socks.get(self.socket) == zmq.POLLIN:
+
+            if self.was_unconnected:
+                self.post_connect()
+                self.was_unconnected = False
+
             self.liveness = constants.HEARTBEAT_LIVENESS
+
             messages = self.socket.recv_multipart()
+
             if len(messages) == 1 and messages[0] == constants.PPP_HEARTBEAT:
-                log.debug('rpc got heartbeat')
+                log.debug('heartbeat received')
                 pass
             else:
                 #messages from the outside world come here.
@@ -178,7 +189,16 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
                 except Exception as e:
                     log.exception(e)
                     if msgid in self.envelopes[msgid] : self.envelopes.pop(msgid)
-                    
+
+        else:
+            self.liveness -= 1
+            if self.liveness <= 0:
+                self.was_unconnected = True
+                log.info('Heartbeat failure, attempting to reconnect in %0.2f sec...' % self.interval/1000)
+                time.sleep(self.interval/1000)
+                self.reconnect()
+                self.liveness = constants.HEARTBEAT_LIVENESS
+
         if self.thread_socket in socks:
             messages = self.thread_socket.recv_multipart()
             log.debug("node sending from worker %s", messages)

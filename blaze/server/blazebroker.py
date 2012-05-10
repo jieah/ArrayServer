@@ -75,13 +75,13 @@ class Broker(Thread):
         if control_type == 'contentreport':
             self.metadata.remove(clientid)
             blazeconfig.merge_configs(self.metadata, data[0])
-            log.info("receivied content report from: %s" % clientid)
-            
+            log.info("receivied content report from: '%s' containing %d sources" % (clientid, len(data[0].pathmap.keys())))
+
     def purge(self):
         purged = self.nodes.purge()
         for addr in purged:
             self.metadata.remove(addr)
-        
+
     def handle_heartbeat(self, address, msg):
         if msg[0] in [PPP_READY, PPP_HEARTBEAT]:
             if not self.nodes.has_key(address):
