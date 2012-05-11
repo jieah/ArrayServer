@@ -100,6 +100,10 @@ class ProtocolHelper(object):
         self.serialize_data = serialize_data
         self.deserialize_data = deserialize_data
         
+    def status_obj(self, status):
+        return {'msgtype' : 'status',
+                'status' : status}
+    
     def error_obj(self, error_msg):
         return {
             'msgtype' : 'error',
