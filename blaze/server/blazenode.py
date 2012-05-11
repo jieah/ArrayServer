@@ -54,7 +54,12 @@ class BlazeRPC(server.RPC):
         response = {'type' : "array"}
         response['shape'] = [int(x) for x in value.shape]
         return response, [value]
+    
+    def get_contentreport(self):
+        log.info("blaze node sent content report")
+        return ({}, [self.metadata.create_inmemory_config()])
 
+        
 class BlazeNode(server.ZParanoidPirateRPCServer):
     def __init__(self, zmq_addr, identity, config, interval=1000.0,
                  protocol_helper=None, ctx=None):
@@ -64,16 +69,6 @@ class BlazeNode(server.ZParanoidPirateRPCServer):
             zmq_addr, identity, rpc, interval=interval,
             protocol_helper=protocol_helper,
             ctx=ctx)
-
-    def post_connect(self):
-        messages = self.ph.pack_blaze(
-            self.identity,
-            str(uuid.uuid4()),
-            {'msgtype' : 'control:contentreport'},
-            [self.metadata.create_inmemory_config()])
-        self.socket.send_multipart(messages)
-        log.info("blaze node '%s' sent content report" % self.identity)
-
 
 if __name__ == "__main__":
     import sys

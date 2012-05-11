@@ -37,7 +37,7 @@ class ZMQWorker(threading.Thread):
         messages = self.ph.pack_blaze(self.clientid, self.msgid,
                                          responseobj, dataobjs)
         socket.send_multipart(messages)
-        log.debug("thread SENDING %s", messages)
+        #log.debug("thread SENDING %s", messages)
         socket.close()
 
 
@@ -135,9 +135,6 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         super(ZParanoidPirateRPCServer, self).connect()
         self.socket.send(constants.PPP_READY)
 
-    def post_connect(self):
-        pass
-
     def handle_heartbeat(self):
         try:
             self.socket.send(constants.PPP_HEARTBEAT, flags=zmq.NOBLOCK)
@@ -166,13 +163,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         socks = dict(self.poller.poll(timeout=constants.HEARTBEAT_INTERVAL*1000))
 
         if socks.get(self.socket) == zmq.POLLIN:
-
-            if self.was_unconnected:
-                self.post_connect()
-                self.was_unconnected = False
-
             self.liveness = constants.HEARTBEAT_LIVENESS
-
             messages = self.socket.recv_multipart()
 
             if len(messages) == 1 and messages[0] == constants.PPP_HEARTBEAT:

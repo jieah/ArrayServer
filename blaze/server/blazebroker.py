@@ -1,3 +1,5 @@
+import functools
+import uuid
 from blaze.array_proxy import array_proxy
 from blaze.array_proxy import grapheval
 from threading import Thread
@@ -46,17 +48,24 @@ class NodeCollection(dict):
 
 class Broker(Thread):
 
-    def __init__(self, frontaddr, backaddr, config=None, protocol_helper=None):
+    def __init__(self, frontaddr, backaddr, config=None, protocol_helper=None,
+                 frontid=None, backid=None):
         if config is None:
             config = blazeconfig.BlazeConfig(blazeconfig.InMemoryMap(),
                                              blazeconfig.InMemoryMap())
+        if frontid is None: frontid = str(uuid.uuid4())
+        self.frontid = frontid
+        if backid is None: backid = str(uuid.uuid4())
+        self.backid = backid
         self.kill = False
         self.context = zmq.Context().instance()
 
         self.frontend = self.context.socket(zmq.ROUTER)
+        self.frontend.setsockopt(zmq.IDENTITY, self.frontid)
         self.frontend.bind(frontaddr)
-
+        
         self.backend = self.context.socket(zmq.ROUTER)
+        self.backend.setsockopt(zmq.IDENTITY, self.backid)
         self.backend.bind(backaddr)
 
         self.poll_nodes = zmq.Poller()
@@ -68,42 +77,58 @@ class Broker(Thread):
         self.metadata = config
         if protocol_helper is None:
             self.ph = protocol.ZMQProtocolHelper()
+        self.callbacks = {}
         super(Broker, self).__init__()
-
-    def handle_control(self, clientid, msgobj, data):
-        control_type = msgobj['msgtype'].partition(":")[-1]
-        if control_type == 'contentreport':
-            self.metadata.remove(clientid)
-            blazeconfig.merge_configs(self.metadata, data[0])
-            log.info("receivied content report from: '%s' containing %d sources" % (clientid, len(data[0].pathmap.keys())))
 
     def purge(self):
         purged = self.nodes.purge()
         for addr in purged:
             self.metadata.remove(addr)
-
+            
+    def handle_contentreport(self, clientid, msgobj, data):
+        self.metadata.remove(clientid)
+        blazeconfig.merge_configs(self.metadata, data[0])
+        log.info("receivied content report from: '%s' containing %d sources" % (clientid, len(data[0].pathmap.keys())))
+        
+    def handle_ready(self, address, msg):
+        self.handle_heartbeat(address, msg)
+        self.backend_rpc('get_contentreport', address,
+                         functools.partial(self.handle_contentreport, address))
+                         
     def handle_heartbeat(self, address, msg):
-        if msg[0] in [PPP_READY, PPP_HEARTBEAT]:
-            if not self.nodes.has_key(address):
-                self.nodes.ready(Node(address))
-            self.nodes[address].touch()
+        if not self.nodes.has_key(address):
+            self.nodes.ready(Node(address))
+        self.nodes[address].touch()
+        
+    def backend_rpc(self, funcname, targetident, callback, *args, **kwargs):
+        if 'data' in kwargs:
+            dataobj = kwargs.pop('data')
         else:
-            print "E: Invalid message from worker: %s" % msg
-
+            dataobj = []
+        requestobj = {'func' : funcname,
+                      'msgtype' : 'rpcrequest',
+                      'args' : args,
+                      'kwargs' : kwargs}
+        reqid = str(uuid.uuid4())
+        multipart_msg = self.ph.pack_blaze(self.backid, reqid,
+                                           requestobj, dataobj)
+        self.callbacks[reqid] = callback
+        multipart_msg = self.ph.pack_envelope([targetident], multipart_msg)
+        self.backend.send_multipart(multipart_msg)
+        
     def handle_backend(self, frames):
         address, msg = frames[0], frames[1:]
-        if len(msg) == 1:
+        if len(msg) == 1 and msg[0] == PPP_HEARTBEAT:
             self.handle_heartbeat(address, msg)
+        elif len(msg) == 1 and msg[0] == PPP_READY:
+            self.handle_ready(address, msg)
         else:
             envelope, payload = self.ph.unpack_envelope(msg)
             (clientid, msgid, msgobj, datastrs) \
                 = self.ph.unpack_blaze(payload, deserialize_data=False)
-            if msgobj['msgtype'].startswith('control'):
-                self.handle_control(
-                    clientid,
-                    msgobj,
-                    self.ph.deserialize_data(datastrs)
-                )
+            if clientid == self.backid and msgobj['msgtype'] == 'rpcresponse':
+                callback = self.callbacks.pop(msgid)
+                callback(msgobj, self.ph.deserialize_data(datastrs))
             else:
                 # for now just forward backend response directly back to client
                 self.frontend.send_multipart(msg)
