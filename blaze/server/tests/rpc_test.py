@@ -17,6 +17,7 @@ import logging
 import time
 import test_utils
 
+import blaze.server.blazeconfig as blazeconfig
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 logging.debug("starting")
@@ -31,7 +32,10 @@ class TestRPC(server.RPC):
 
     def echo(self, body, dummykv=None, data=None):
         return {'body' : body,'dummykv': dummykv}, data
-
+    
+    def get_contentreport(self):
+        return {}, [blazeconfig.BlazeConfig({}, {})]
+    
 class TestRPCServer(server.ZParanoidPirateRPCServer):
     def __init__(self, zmqaddr, identity, interval=1000.0,
                  protocol_helper=None, ctx=None, *args, **kwargs):
@@ -53,25 +57,22 @@ class RPCTest(unittest.TestCase):
     def tearDown(self):
         if hasattr(self, 'rpcserver'):
             self.rpcserver.kill = True
-        if hasattr(self, 'broker'):
-            self.broker.kill = True
-        if hasattr(self, 'rpcserver'):
             test_utils.wait_until(lambda : self.rpcserver.socket.closed)
             print 'rpcserver closed!'
         if hasattr(self, 'broker'):
+            self.broker.kill = True
             def done():
                 return self.broker.frontend.closed and self.broker.backend.closed
             test_utils.wait_until(done)
             print 'broker closed!'
         #we need this to wait for sockets to close, really annoying
-        time.sleep(1.0)
-
+        time.sleep(0.2)
 
     def test_ppirate_rpc(self):
-        broker = blazebroker.Broker(frontaddr, backaddr)
+        broker = blazebroker.Broker(frontaddr, backaddr, timeout=100.0)
         broker.start()
         self.broker = broker
-        rpcserver = TestRPCServer(backaddr, 'TEST')
+        rpcserver = TestRPCServer(backaddr, 'TEST', interval=100.0)
         rpcserver.start()
         test_utils.wait_until(lambda : len(broker.nodes) > 0)
         self.rpcserver = rpcserver
@@ -86,10 +87,10 @@ class RPCTest(unittest.TestCase):
         assert (data[0] == newdata[0]).all()
 
     def test_ppirate_rpc_arbitrary_data(self):
-        broker = blazebroker.Broker(frontaddr, backaddr)
+        broker = blazebroker.Broker(frontaddr, backaddr, timeout=100.0)
         broker.start()
         self.broker = broker
-        rpcserver = TestRPCServer(backaddr, 'TEST')
+        rpcserver = TestRPCServer(backaddr, 'TEST', interval=100.0)
         rpcserver.start()
         test_utils.wait_until(lambda : len(broker.nodes) > 0)
         self.rpcserver = rpcserver

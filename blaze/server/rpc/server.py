@@ -113,8 +113,8 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         self.rpc = rpc
         self.identity = identity
         self.interval = interval
-        self.liveness = constants.HEARTBEAT_LIVENESS
         self.last_heartbeat = 0.0
+        self.last_heartbeat_recvd = time.time()
         self.thread_socket = self.ctx.socket(zmq.PULL)
         self.zmqaddr = zmqaddr
         self.workers = {}
@@ -159,11 +159,9 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         self.socket.send_multipart(messages)
 
     def run_once(self):
-
-        socks = dict(self.poller.poll(timeout=constants.HEARTBEAT_INTERVAL*1000))
-
+        socks = dict(self.poller.poll(timeout=self.interval))
         if socks.get(self.socket) == zmq.POLLIN:
-            self.liveness = constants.HEARTBEAT_LIVENESS
+            self.last_heartbeat_recvd = time.time()
             messages = self.socket.recv_multipart()
 
             if len(messages) == 1 and messages[0] == constants.PPP_HEARTBEAT:
@@ -182,13 +180,10 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
                     if msgid in self.envelopes[msgid] : self.envelopes.pop(msgid)
 
         else:
-            self.liveness -= 1
-            if self.liveness <= 0:
-                self.was_unconnected = True
-                log.info('Heartbeat failure, attempting to reconnect in %0.2f sec...' % self.interval/1000)
+            if time.time() > self.last_heartbeat_recvd + constants.HEARTBEAT_INTERVAL:
+                log.info('Heartbeat failure, attempting to reconnect in %0.2f sec...', self.interval/1000)
                 time.sleep(self.interval/1000)
                 self.reconnect()
-                self.liveness = constants.HEARTBEAT_LIVENESS
 
         if self.thread_socket in socks:
             messages = self.thread_socket.recv_multipart()

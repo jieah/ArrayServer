@@ -38,10 +38,10 @@ class RouterTestCase(unittest.TestCase):
         servername = 'myserver'
         self.config = BlazeConfig(InMemoryMap(), InMemoryMap())
         generate_config_hdf5(servername, '/hugodata', self.hdfpath, self.config)
-        broker = BlazeBroker(frontaddr, backaddr)
+        broker = BlazeBroker(frontaddr, backaddr, timeout=100.0)
         broker.start()
         self.broker = broker
-        rpcserver = BlazeNode(backaddr, servername, self.config)
+        rpcserver = BlazeNode(backaddr, servername, self.config, interval=100.0)
         rpcserver.start()
         self.rpcserver = rpcserver
         test_utils.wait_until(lambda : len(broker.metadata.pathmap) > 1)
@@ -49,18 +49,16 @@ class RouterTestCase(unittest.TestCase):
     def tearDown(self):
         if hasattr(self, 'rpcserver'):
             self.rpcserver.kill = True
-        if hasattr(self, 'broker'):
-            self.broker.kill = True
-        if hasattr(self, 'rpcserver'):
             test_utils.wait_until(lambda : self.rpcserver.socket.closed)
             print 'rpcserver closed!'
         if hasattr(self, 'broker'):
+            self.broker.kill = True
             def done():
                 return self.broker.frontend.closed and self.broker.backend.closed
             test_utils.wait_until(done)
             print 'broker closed!'
         #we need this to wait for sockets to close, really annoying
-        time.sleep(1.0)
+        time.sleep(0.2)
 
     def test_connect(self):
         node = self.broker.metadata.get_node('/hugodata/20100217/names')

@@ -49,7 +49,8 @@ class NodeCollection(dict):
 class Broker(Thread):
 
     def __init__(self, frontaddr, backaddr, config=None, protocol_helper=None,
-                 frontid=None, backid=None):
+                 frontid=None, backid=None, timeout=1000.0):
+        self.timeout = timeout
         if config is None:
             config = blazeconfig.BlazeConfig(blazeconfig.InMemoryMap(),
                                              blazeconfig.InMemoryMap())
@@ -153,8 +154,7 @@ class Broker(Thread):
 
             if len(self.nodes) > 0: poller = self.poll_both
             else: poller = self.poll_nodes
-
-            socks = dict(poller.poll(HEARTBEAT_INTERVAL * 1000))
+            socks = dict(poller.poll(self.timeout))
 
             # handle worker activity on backend
             if socks.get(self.backend) == zmq.POLLIN:
@@ -175,9 +175,11 @@ class Broker(Thread):
 
 
 class BlazeBroker(Broker, router.RPCRouter):
-    def __init__(self, frontaddr, backaddr, config=None, protocol_helper=None):
+    def __init__(self, frontaddr, backaddr, timeout=1000.0,
+                 config=None, protocol_helper=None):
         super(BlazeBroker, self).__init__(
-            frontaddr, backaddr, config=config, protocol_helper=protocol_helper)
+            frontaddr, backaddr, config=config, timeout=timeout,
+            protocol_helper=protocol_helper)
 
     def handle_frontend(self, frames):
         envelope, payload = self.ph.unpack_envelope(frames)
