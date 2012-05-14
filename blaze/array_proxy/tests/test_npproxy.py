@@ -6,6 +6,7 @@ from numpy import pi
 import unittest
 
 from blaze.array_proxy.array_proxy import ArrayProxy, ArrayNode
+import blaze.array_proxy.grapheval as grapheval
 
 
 def func1(np):
