@@ -20,7 +20,7 @@ import blaze.server.rpc.client as client
 from blaze.server.blazebroker import BlazeBroker
 from blaze.server.blazenode import BlazeNode
 from blaze.server.blazeconfig import BlazeConfig, InMemoryMap, generate_config_hdf5
-from blaze.array_proxy.array_proxy import BlazeArrayProxy
+from blaze.array_proxy.blaze_array_proxy import BlazeArrayProxy
 import blaze.array_proxy.npproxy as npp
 
 
@@ -75,7 +75,7 @@ class RouterTestCase(unittest.TestCase):
         assert '/hugodata/20100217/names' in self.broker.metadata.get_dependencies('myserver')
 
     def test_get(self):
-        rpcclient = client.ZDealerRPCClient(frontaddr)
+        rpcclient = client.BlazeClient(frontaddr)
         rpcclient.connect()
         responseobj, data = rpcclient.rpc('get', '/hugodata/20100217/names')
         data = data[0]
@@ -95,10 +95,10 @@ class RouterTestCase(unittest.TestCase):
         assert 'dates' in responseobj['children']
 
     def test_eval_with_hdf5_sources(self):
-        rpcclient = client.ZDealerRPCClient(frontaddr)
+        rpcclient = client.BlazeClient(frontaddr)
         rpcclient.connect()
-        x = BlazeArrayProxy('/hugodata/20100217/prices')
-        y = BlazeArrayProxy('/hugodata/20100218/prices')
+        x = rpcclient.blaze_source('/hugodata/20100217/prices')
+        y = rpcclient.blaze_source('/hugodata/20100218/prices')
         z = npp.sin((x-y)**3)
         responseobj, data = rpcclient.rpc('eval', data=[z])
         assert responseobj['shape'] == [1561, 3]

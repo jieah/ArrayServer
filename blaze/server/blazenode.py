@@ -6,7 +6,7 @@ log = logging.getLogger(__name__)
 import collections
 import blazeconfig
 import uuid
-from blaze.array_proxy import array_proxy
+from blaze.array_proxy import blaze_array_proxy
 from blaze.array_proxy import grapheval
 
 
@@ -36,7 +36,7 @@ class BlazeRPC(server.RPC):
     def eval(self, data):
         log.info("called eval")
         graph = data[0]
-        array_nodes = grapheval.find_nodes_of_type(graph, array_proxy.BlazeArrayProxy)
+        array_nodes = grapheval.find_nodes_of_type(graph, blaze_array_proxy.BlazeArrayProxy)
         for node in array_nodes:
             # TODO we need to handle multiple physical sources
             source = self.metadata.get_node(node.url)['sources'][0]

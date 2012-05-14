@@ -1,6 +1,7 @@
 import functools
 import uuid
 from blaze.array_proxy import array_proxy
+from blaze.array_proxy import blaze_array_proxy
 from blaze.array_proxy import grapheval
 from threading import Thread
 import time
@@ -64,7 +65,7 @@ class Broker(Thread):
         self.frontend = self.context.socket(zmq.ROUTER)
         self.frontend.setsockopt(zmq.IDENTITY, self.frontid)
         self.frontend.bind(frontaddr)
-        
+
         self.backend = self.context.socket(zmq.ROUTER)
         self.backend.setsockopt(zmq.IDENTITY, self.backid)
         self.backend.bind(backaddr)
@@ -85,22 +86,23 @@ class Broker(Thread):
         purged = self.nodes.purge()
         for addr in purged:
             self.metadata.remove(addr)
-            
+
     def handle_contentreport(self, clientid, msgobj, data):
         self.metadata.remove(clientid)
         blazeconfig.merge_configs(self.metadata, data[0])
         log.info("receivied content report from: '%s' containing %d sources" % (clientid, len(data[0].pathmap.keys())))
-        
+
     def handle_ready(self, address, msg):
         self.handle_heartbeat(address, msg)
+        log.info("requesting content report from: %s", address)
         self.backend_rpc('get_contentreport', address,
                          functools.partial(self.handle_contentreport, address))
-                         
+
     def handle_heartbeat(self, address, msg):
         if not self.nodes.has_key(address):
             self.nodes.ready(Node(address))
         self.nodes[address].touch()
-        
+
     def backend_rpc(self, funcname, targetident, callback, *args, **kwargs):
         if 'data' in kwargs:
             dataobj = kwargs.pop('data')
@@ -116,7 +118,7 @@ class Broker(Thread):
         self.callbacks[reqid] = callback
         multipart_msg = self.ph.pack_envelope([targetident], multipart_msg)
         self.backend.send_multipart(multipart_msg)
-        
+
     def handle_backend(self, frames):
         address, msg = frames[0], frames[1:]
         if len(msg) == 1 and msg[0] == PPP_HEARTBEAT:
@@ -210,7 +212,7 @@ class BlazeBroker(Broker, router.RPCRouter):
     def route_eval(self, datastrs, rawmessage=None):
         log.info("route_eval")
         graph = self.ph.deserialize_data(datastrs)[0]
-        array_nodes = grapheval.find_nodes_of_type(graph, array_proxy.BlazeArrayProxy)
+        array_nodes = grapheval.find_nodes_of_type(graph, blaze_array_proxy.BlazeArrayProxy)
         if len(array_nodes) == 0:
             # There are no blaze sources, simply farm this out to a random node
             node = self.nodes.values[0]   # TODO some sort of fair queuing
@@ -229,8 +231,21 @@ class BlazeBroker(Broker, router.RPCRouter):
                     log.info('sending blaze source eval to backend %s' % node)
                     self.backend.send_multipart(rawmessage)
 
+    def route_info(self, url, rawmessage=None):
+        log.info("route info")
+        info = self.metadata.get_node(url)
+        (envelope, clientid, msgid,
+            requestobj, datastrs) = self.ph.unpack_envelope_blaze(
+                rawmessage, deserialize_data=False)
+        msgobj, dataobjs = self.ph.pack_rpc(
+            {'type' : 'info'}, [{'shape':info['shape'], 'dtype':info['dtype']}])
+        messages = self.ph.pack_envelope_blaze(
+            envelope, clientid, msgid, msgobj, dataobjs
+        )
+        self.frontend.send_multipart(messages)
 
-
+    def route_store(self, url, datastrs, rawmessage=None):
+        log.info("route store")
 
 
 if __name__ == '__main__':

@@ -97,18 +97,18 @@ class ProtocolHelper(object):
                  deserialize_data=default_deserialize_data,
                  serialize_web=serialize_json,
                  deserialize_web=deserialize_json):
-        
+
         self.serialize_msg = serialize_msg
         self.deserialize_msg = deserialize_msg
         self.serialize_data = serialize_data
         self.deserialize_data = deserialize_data
         self.serialize_web = serialize_web
         self.deserialize_web = deserialize_web
-        
+
     def status_obj(self, status):
         return {'msgtype' : 'status',
                 'status' : status}
-    
+
     def error_obj(self, error_msg):
         return {
             'msgtype' : 'error',
@@ -135,7 +135,7 @@ class ProtocolHelper(object):
         return {'msgtype' : 'rpcresponse',
                 'rpcresponse' : responseobj}, dataobj
 
-        
+
 class ZMQProtocolHelper(ProtocolHelper):
     def unpack_blaze(self, messages, deserialize_data=True):
         clientid = messages[0]
@@ -190,5 +190,5 @@ class ZMQProtocolHelper(ProtocolHelper):
          msgobj,
          dataobjs) = self.unpack_blaze(messages)
         return (envelope, clientid, msgid, msgobj, dataobjs)
-    
-        
+
+

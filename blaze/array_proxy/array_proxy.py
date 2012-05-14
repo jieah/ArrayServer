@@ -300,23 +300,3 @@ class ArrayNode(BaseArrayNode):
     def _compile(self):
         pass
 
-
-class BlazeArrayProxy(ArrayProxy):
-    """ A Python-level class that wraps a blaze data source.  All the methods
-    of an ndarray are present here, and most will return an ArrayNode, when called
-    on a Blaze server node that replicates the data mapping to the Blaze URL.
-
-    The ArrayProxy presents a generator array interface that sits on top of an
-    actual numpy array.
-    """
-
-    def __init__(self, url):
-        """ Creates a new BlazeArrayProxy, given a Blaze URL as a parent
-        value.
-        """
-        super(BlazeArrayProxy,self).__init__(None)
-        self.url = url
-
-    def __setstate__(self, dict):
-        super(BlazeArrayProxy, self).__setstate__(dict)
-        self.func = None

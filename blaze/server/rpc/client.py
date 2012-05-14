@@ -3,6 +3,7 @@ import simplejson
 import threading
 import operator
 import zmq
+from blaze.array_proxy.blaze_array_proxy import BlazeArrayProxy
 import blaze.server.constants as constants
 import logging
 import time
@@ -102,5 +103,21 @@ class ZDealerRPCClient(common.HasZMQSocket, BaseRPCClient):
                     log.debug(responseobj)
             if time.time() - starttime > (self.timeout / 1000.0):
                 return [None, None]
+
+
+class BlazeClient(ZDealerRPCClient):
+    """Client class for connecting to Blaze Array Servers
+    """
+    def __init__(self, zmqaddr, timeout=1000.0,
+                 ident=None, protocol_helper=None,
+                 ctx=None):
+        super(BlazeClient, self).__init__(zmqaddr, timeout=timeout,
+            ident=ident, protocol_helper=protocol_helper, ctx=ctx)
+
+
+    def blaze_source(self, url):
+        return BlazeArrayProxy(url, self)
+
+
 
 
