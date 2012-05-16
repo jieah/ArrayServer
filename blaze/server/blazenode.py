@@ -6,6 +6,7 @@ log = logging.getLogger(__name__)
 import collections
 import blazeconfig
 import uuid
+import numpy
 from blaze.array_proxy import blaze_array_proxy
 from blaze.array_proxy import grapheval
 
@@ -25,13 +26,23 @@ class BlazeRPC(server.RPC):
     def get_data(self, node, data_slice=None):
         response = {'type' : node['type']}
         source = node['sources'][0]
-        arr = tables.openFile(source['filepath']).getNode(source['localpath'])
-        response['shape'] = [int(x) for x in arr.shape]
-        if data_slice is None:
-            return response, [arr[:]]
-        else:
-            data_slice = slice(*data_slice)
-            return response, [arr[data_slice]]
+        source_type = source['type']
+        if source_type == 'hdf5':
+            arr = tables.openFile(source['filepath']).getNode(source['localpath'])
+            response['shape'] = [int(x) for x in arr.shape]
+            if data_slice is None:
+                return response, [arr[:]]
+            else:
+                data_slice = slice(*data_slice)
+                return response, [arr[data_slice]]
+        elif source_type == 'numpy':
+            arr = numpy.load(source['filepath'])
+            if data_slice is None:
+                return response, [arr]
+            else:
+                data_slice = slice(*data_slice)
+                return response, [arr[data_slice]]
+
 
     def eval(self, data):
         log.info("called eval")
@@ -44,6 +55,9 @@ class BlazeRPC(server.RPC):
             if source_type == 'hdf5':
                 arr = tables.openFile(source['filepath']).getNode(source['localpath'])
                 node.set_array(arr[:])
+            elif source_type == 'numpy':
+                arr = numpy.load(source['filepath'])
+                node.set_array(arr)
             else:
                 return self.ph.pack_rpc(
                     self.ph.error_obj('encountered unknown blaze array type %s' % source_type), []
@@ -54,12 +68,12 @@ class BlazeRPC(server.RPC):
         response = {'type' : "array"}
         response['shape'] = [int(x) for x in value.shape]
         return response, [value]
-    
+
     def get_contentreport(self):
         log.info("blaze node sent content report")
         return ({}, [self.metadata.create_inmemory_config()])
 
-        
+
 class BlazeNode(server.ZParanoidPirateRPCServer):
     def __init__(self, zmq_addr, identity, config, interval=1000.0,
                  protocol_helper=None, ctx=None):

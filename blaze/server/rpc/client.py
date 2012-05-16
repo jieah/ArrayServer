@@ -74,7 +74,7 @@ class ZDealerRPCClient(common.HasZMQSocket, BaseRPCClient):
                  ident=None, protocol_helper=None,
                  ctx=None):
         if protocol_helper is None:
-            protocol_helper = protocol.ZMQProtocolHelper()
+            protocol_helper = protocol.ProtocolHelper()
         super(ZDealerRPCClient, self).__init__(
             ident=ident, protocol_helper=protocol_helper, ctx=ctx)
         self.zmqaddr = zmqaddr

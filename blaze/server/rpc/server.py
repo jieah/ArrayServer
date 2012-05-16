@@ -108,7 +108,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         super(ZParanoidPirateRPCServer, self).__init__(
             ctx=ctx , *args, **kwargs)
         if protocol_helper is None:
-            protocol_helper = protocol.ZMQProtocolHelper()
+            protocol_helper = protocol.ProtocolHelper()
         self.ph = protocol_helper
         self.rpc = rpc
         self.identity = identity

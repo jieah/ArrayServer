@@ -6,6 +6,7 @@ import rpc.server as server
 log = logging.getLogger(__name__)
 import collections
 import simplejson
+import numpy
 
 DatasetSource = collections.namedtuple('DatasetSource', ['type', 'servername', 'filepath', 'hdf5path', 'shard', 'totalshards', 'dtype', 'shape'])
 GroupSource = collections.namedtuple('GroupSource', ['type', 'servername', 'filepath', 'hdf5path'])
@@ -27,7 +28,7 @@ def path_history(path):
 class InMemoryMap(dict):
     def sync(self):
         pass
-    
+
 class BlazeConfigError(Exception):
     pass
 
@@ -38,7 +39,7 @@ class BlazeConfig(object):
         #ensure root node exists
         if self.get_node('/') is None:
             self.pathmap['/'] = self.group_obj([])
-        
+
     def create_inmemory_config(self):
         return BlazeConfig(InMemoryMap(self.pathmap),
                            InMemoryMap(self.reversemap))
@@ -60,38 +61,38 @@ class BlazeConfig(object):
                 'filepath' : filepath,
                 'shard' : shard,
                 'localpath' : localpath}
-                
+
     def table_obj(self, appendable, dtype, shape, shardinfo, sources):
         return {'type' : 'array',
                 'dtype' : dtype,
                 'shape' : shape,
                 'shardinfo' : shardinfo,
                 'sources' : sources}
-    
+
     def array_obj(self, appendable, dtype, shape, shardinfo, sources):
         return {'type' : 'array',
                 'dtype' : dtype,
                 'shape' : shape,
                 'shardinfo' : shardinfo,
                 'sources' : sources}
-    
+
     def safe_insert(self, parentpath, name, obj):
         newpath = os.path.join(parentpath, name)
         if self.pathmap.get(newpath) is not None:
             raise BlazeConfigError, 'item already exists'
-        
+
         parent = self.pathmap.get(parentpath)
         if parent is None:
             parent = self.safe_insert(
                 os.path.dirname(parentpath),
                 os.path.basename(parentpath),
                 self.group_obj([]))
-            parent = self.pathmap.get(parentpath)                             
+            parent = self.pathmap.get(parentpath)
         if name not in parent['children']:
             parent['children'].append(name)
             self.pathmap[parentpath] = parent
         self.pathmap[os.path.join(parentpath, name)] = obj
-        
+
     def list_children(self, path):
         group = self.pathmap.get(path)
         if group is None or group['type'] != 'group':
@@ -110,7 +111,7 @@ class BlazeConfig(object):
             node['sources'].append(source)
             self.add_reverse_map(path, source)
         self.pathmap[path] = node
-        
+
     def sourcekey(self, servername, filepath=None, localpath=None):
         data = [servername]
         if filepath is not None:
@@ -118,7 +119,7 @@ class BlazeConfig(object):
         if localpath is not None:
             data.append(localpath)
         return ":".join(data)
-    
+
     def add_reverse_map(self, path, source):
         sourcekey = self.sourcekey(source['servername'],
                                    source['filepath'],
@@ -131,10 +132,10 @@ class BlazeConfig(object):
             if path not in paths:
                 paths.append(path)
             self.reversemap[sourcekey] = paths
-            
+
     def get_node(self, path):
         return self.pathmap.get(path)
-        
+
     def get_dependencies(self, servername, filepath=None, localpath=None):
         sourcekey = self.sourcekey(servername, filepath, localpath)
         searchkeys = [x for x in self.reversemap.keys() if x.startswith(sourcekey)]
@@ -155,7 +156,7 @@ class BlazeConfig(object):
                 self.remove_source(path, source)
         sourcekey = self.sourcekey(servername, filepath, localpath)
         searchkeys = [x for x in self.reversemap.keys() if x.startswith(sourcekey)]
-        
+
     def remove_source(self, path, source):
         node = self.pathmap.get(path)
         newsources = [x for x in node['sources'] if x != source]
@@ -165,7 +166,7 @@ class BlazeConfig(object):
             self.pathmap[path] = node
         else:
             del self.pathmap[path]
-        
+
     def remove_reverse_map(self, path, source):
         sourcekey = self.sourcekey(source['servername'],
                                    source['filepath'],
@@ -175,9 +176,9 @@ class BlazeConfig(object):
             paths = self.reversemap[sourcekey]
             paths = [x for x in paths if paths != path]
             if len(paths) == 0:
-                del self.reversemap[sourcekey] 
-        
-    
+                del self.reversemap[sourcekey]
+
+
 def generate_config_hdf5(servername, blazeprefix, datapath, config):
     assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
     f = tables.openFile(datapath)
@@ -209,6 +210,17 @@ def generate_config_hdf5(servername, blazeprefix, datapath, config):
                                    node._v_pathname)])
             config.create_dataset(serverpath, obj)
 
+def generate_config_numpy(servername, blazeprefix, localpath, filepath, config):
+    assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
+    assert localpath.startswith('/') and not localpath.endswith('/')
+    arr = numpy.load(filepath)
+    obj = config.array_obj(
+            False, arr.dtype, arr.shape, {'shardtype' : 'noshards'},
+            [config.source_obj(servername, 'numpy', filepath, None, localpath)])
+    serverpath = blazeprefix + localpath
+    config.create_dataset(serverpath, obj)
+
+
 def merge_configs(baseconfig, newconfig):
     for k,v in newconfig.pathmap.iteritems():
         if v['type'] == 'group':
@@ -222,7 +234,7 @@ def merge_configs(baseconfig, newconfig):
             baseconfig.create_dataset(k, v)
 
 
-                
+
 if __name__ == "__main__":
     """
     (pathmapfile, reversemapfile,

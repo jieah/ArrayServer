@@ -41,16 +41,30 @@ class InMemoryConfigTestCase(unittest.TestCase):
         assert '/path/here/myset' in self.config.get_dependencies('server1',
                                                                   '/data/bin/data',
                                                                   '/datasets/scan')
-    def from_hdf5_test(self):
+    def test_from_hdf5(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
         hdfpath = os.path.join(testroot, 'gold.hdf5')
 
-        blazeconfig.generate_config_hdf5('myserver', '/hugodata',
+        blazeconfig.generate_config_hdf5('myserver', '/data',
                                          hdfpath, self.config)
-        node = self.config.get_node('/hugodata/20100217/names')
+        node = self.config.get_node('/data/20100217/names')
         assert node['shape'] == (3,)
         assert node['sources'][0]['localpath'] == '/20100217/names'
-        assert '/hugodata/20100217/names' in self.config.get_dependencies('myserver')
+        assert node['sources'][0]['type'] == 'hdf5'
+        assert '/data/20100217/names' in self.config.get_dependencies('myserver')
+
+    def test_from_numpy(self):
+        testroot = os.path.abspath(os.path.dirname(__file__))
+        path = os.path.join(testroot, 'test.npy')
+
+        blazeconfig.generate_config_numpy('myserver', '/data', '/test',
+                                         path, self.config)
+        node = self.config.get_node('/data/test')
+        assert node['shape'] == (100,)
+        assert node['sources'][0]['localpath'] == '/test'
+        assert node['sources'][0]['type'] == 'numpy'
+        assert '/data/test' in self.config.get_dependencies('myserver')
+
     def test_remove(self):
         a = np.arange(200)
         appendable = False

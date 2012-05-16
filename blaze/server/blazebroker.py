@@ -78,7 +78,7 @@ class Broker(Thread):
         self.poll_both.register(self.backend, zmq.POLLIN)
         self.metadata = config
         if protocol_helper is None:
-            self.ph = protocol.ZMQProtocolHelper()
+            self.ph = protocol.ProtocolHelper()
         self.callbacks = {}
         super(Broker, self).__init__()
 
@@ -182,6 +182,8 @@ class BlazeBroker(Broker, router.RPCRouter):
         super(BlazeBroker, self).__init__(
             frontaddr, backaddr, config=config, timeout=timeout,
             protocol_helper=protocol_helper)
+        log.info("Starting Blaze Broker")
+
 
     def handle_frontend(self, frames):
         envelope, payload = self.ph.unpack_envelope(frames)

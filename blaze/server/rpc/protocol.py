@@ -120,7 +120,6 @@ class ProtocolHelper(object):
             'status' : 'working',
             'request_id' : request_id}
 
-
     def unpack_rpc(self, responseobj, dataobj):
         """see package_rpc_response from BaseRPCServer
         """
@@ -135,8 +134,6 @@ class ProtocolHelper(object):
         return {'msgtype' : 'rpcresponse',
                 'rpcresponse' : responseobj}, dataobj
 
-
-class ZMQProtocolHelper(ProtocolHelper):
     def unpack_blaze(self, messages, deserialize_data=True):
         clientid = messages[0]
         messageid = messages[1]
