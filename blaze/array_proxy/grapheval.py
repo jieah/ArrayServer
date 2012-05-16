@@ -157,6 +157,7 @@ def find_nodes_of_type(graph, cls):
     instances of the requested class :(object):
     """
     res = set()
+    if isinstance(graph, cls): res.update([graph])
     for arg in graph.args:
         if isinstance(arg, cls): res.update([arg])
         if isinstance(arg, GraphNode): res.update(find_nodes_of_type(arg, cls))

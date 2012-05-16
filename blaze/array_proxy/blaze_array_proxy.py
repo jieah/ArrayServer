@@ -1,5 +1,6 @@
 
-from blaze.array_proxy.array_proxy import ArrayProxy
+from blaze.array_proxy.array_proxy import ArrayProxy, ArrayNode
+import numpy as np
 
 class BlazeArrayProxy(ArrayProxy):
     """ A Python-level class that wraps a blaze data source.  All the methods
@@ -20,6 +21,15 @@ class BlazeArrayProxy(ArrayProxy):
         info = data[0]
         self.cached_shape = info['shape']
         self.cached_dtype = info['dtype']
+
+    def _graph_call(self, funcname, args, kw):
+        # Return the a graphnode around the unbound method, and supplying
+        # self as args[0].  In-place methodds (iadd,etc) are modified to
+        # return self.
+        import pdb; pdb.set_trace()
+        node = ArrayNode(funcname, getattr(np.ndarray, funcname), (self,) + args, kw)
+        self.add_listener(node)
+        return node
 
     def __setstate__(self, dict):
         super(BlazeArrayProxy, self).__setstate__(dict)
