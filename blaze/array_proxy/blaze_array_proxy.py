@@ -26,7 +26,6 @@ class BlazeArrayProxy(ArrayProxy):
         # Return the a graphnode around the unbound method, and supplying
         # self as args[0].  In-place methodds (iadd,etc) are modified to
         # return self.
-        import pdb; pdb.set_trace()
         node = ArrayNode(funcname, getattr(np.ndarray, funcname), (self,) + args, kw)
         self.add_listener(node)
         return node
