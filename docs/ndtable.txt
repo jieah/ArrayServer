@@ -1,0 +1,113 @@
+
+name-server:              
+             maps name to url with array-server and id of array on that machine
+             uniqueness is guaranteed on a single name-server only (for now).  The url + id is already a unique name, this is just a short-hand for use in applications.
+                                            
+An NDTable object holds and manages the relationship between 
+   a high-level array-oriented view of a collection of data and the low-level access 
+   to that data which can be used for compute. 
+
+NDTables are composed of a number of other ndtables.  In other-words, there is a mapping between the shape and attribute lay-out of this table and several other ndtables.  An unchunked ndtable is either:        
+      remote (named with respect to a name-server)
+          computations will be pushed where possible to the node where this array lives
+      generated via an expression graph
+      dtyped and transformed byte-buffer
+             * General abstract "storage"
+             * RAM
+             * Random IO (seekable, block-seeking or byte-seeking)
+                      * spinning disk
+                      * solid state disk
+             * Sequential IO
+                      * socket 
+                      * usb
+                      * RS-232
+                      * line-in
+                      * frame-grabber
+                      * tv-tuner
+                      * other byte-based measurement data-source
+             * remote memory
+                      * url + 
+                          disk / file
+                          process / pointer
+                          shared memory segment
+                       * this is used to map data actually needed on a machine with no ndtable wrapper
+             - byte-buffers have affinity information providing latency and bandwidth that a compute scheduler can use
+             - byte-buffers are either readonly, writeable, or appendable
+
+Each byte-buffer has a corresponding dtype which describes how the "bytes" should be interpreted during compute / processing
+     To the standard NumPy dtypes we add: 
+        * bit-pattern dtypes (a bit-pattern reserved for a mask)
+        * masked dtypes (a bit-mask added for every N elements where N is a multiple of some word-size like 32 or 64)
+        * arbitrary precision floats
+        * arbitrary precision complex numbers
+        * big integers
+        * level dtypes
+        * pointer dtypes (what is stored in the memory of a dtype is a reference to the actual data)
+                * vararray dtypes (these are "ragged" dtypes where the memory is actually stored elsewhere and managed separately)
+                * varutf8 dtypes
+                * varbytes dtypes
+                * pointer to a dtype 
+                * pointer to another dtype-mapped buffer (this allows C-style arrays to be understood) 
+                * far-reference dtypes (url + (disk, file) or url + (process, pointer))
+        * array dtypes which take an index-mapping function to map the 'i,j,k,...' element to the linear N'th element of the array
+                * special-case for strided cases
+                * special-case for C-contiguous
+                * special-case for F-contiguous
+                * array dtypes maintain their character when constructed so that a (2,) array of (2,3) array-dtypes continues to have a shape of (2,) where every element is a (2,3) array.
+        * expression dtypes (including expressions with null storage --- i.e. generated data).  
+        * derived fields in structured arrays...
+        * cell dtypes
+        * block-expression dtypes (these dtypes are similar to expression dtypes except they take N elements of the underlying storage and return M elements of the result).   Indexes?  Variable-length blocks (N and/or M varying)?  Streams?  
+        * Notice that a "transformation function" is subsubmed by the block-expression dtypes. 
+
+        * Notice that a traditional dynamically allocated C-array with separate memory buffers can be understood with a memory buffer dtype that is a pointer to pointer to fundamental with a pointer to pointer to dtype 
+
+        * Notice also that a traditional NumPy array is contained entirely in the array-dtype
+
+Domains: 
+
+         Basically, things that will be used to index
+         Arithmetic (basically tuples of slice objects) --- these can be interleaved with step
+         Sparse (fancy-indexing really -- actual indexes that will be selected)
+         Cartesian index (new)
+                  
+An NDTable contains a mapping between domains and chunks.  An NDTable can contain only one chunk but it can also contain many. 
+An NDTable also contains a dimension mapping that creates the shape from the underlying ndtable chunks.  dimensions have properties of ordering and indexing.  Standard dimensions are "integer" based and implicit.  Sparse dimensions replace one or more attributes in another ndtable and one or more dimensions.   Dimensions can be named (sparse dimensions get a default name consisting of their attributes).  Sparse dimensions can be ordered or unordered (i.e. categorical data).
+
+Dimensions can be labeled by a dictionary, 1-d 2-attribute ndtable, or a 2-d ndtable, or an ndarray, that maps a hashable type to an integer. 
+
+An NDTable is indexed via slicing on "dimensions" and accessing attributes.
+
+Question:   Should accessing an attribute be the same as accessing dimensions. 
+
+Only standard dimensions can be chunked. 
+        
+        
+
+
+Dimension information: 
+
+          Question?  Do we allow attributes to be interpreted as a "dimension" (i.e. given an ordering) -- seems to match intuition
+          How does this interact with attributes creating sparse dimensions by replacing one or more of the other dimensions?
+
+
+
+Random thoughts:
+
+       * Chapel's "vectorize" primitives are interesting consisting of standard "zip" promotion and tensor product promotion:
+            --- should consider returning a vectorize function with tensor promotion that takes the input arguments and returns appends newaxis arguments.
+
+            Suppose you have N-input arguments all 1-dim  then the kth input argument has shape (1,)*(N-k-1) + arg.shape + (1,)*k  with k starting at 0 and going to N-1
+
+            N = 2:   arg0 = (5,) and arg1 = (7,)
+
+                   (1,5) and (7,1)
+
+            N = 3:  arg0 = (5,) and arg1 = (6,) and arg2 = (7,)
+
+                   (1,1,5) and (1,6,1) and (7,1,1)
+
+
+Read:   http://chapel.cray.com/spec/spec-0.775.pdf
+
+Chapel also has the notion of locales which are compute-and-memory nodes.  We will borrow this idea. 
