@@ -1,13 +1,20 @@
 
 name-server:              
              maps name to url with array-server and id of array on that machine
-             uniqueness is guaranteed on a single name-server only (for now).  The url + id is already a unique name, this is just a short-hand for use in applications.
+             uniqueness is guaranteed on a single name-server only
+             (for now).  The url + id is already a unique name, this
+             is just a short-hand for use in applications.  It's like
+             a variable name in an application as opposed to a memory
+             address.  
                                             
 An NDTable object holds and manages the relationship between 
-   a high-level array-oriented view of a collection of data and the low-level access 
-   to that data which can be used for compute. 
+   a high-level, array-oriented view of a collection of data and the
+   low-level access and interpretation of that data which can be used for compute. 
 
-NDTables are composed of a number of other ndtables.  In other-words, there is a mapping between the shape and attribute lay-out of this table and several other ndtables.  An unchunked ndtable is either:        
+NDTables are composed of a number of other ndtables.  In other-words,
+there is a mapping between the shape and attribute lay-out of this
+table and several other ndtables.   An "unchunked" ndtable is either:        
+
       remote (named with respect to a name-server)
           computations will be pushed where possible to the node where this array lives
       generated via an expression graph
@@ -66,32 +73,82 @@ Each byte-buffer has a corresponding dtype which describes how the "bytes" shoul
 
 Domains: 
 
-         Basically, things that will be used to index
+         Basically, things that will be used to index an ndtable or
+         define it's chunking. 
          Arithmetic (basically tuples of slice objects) --- these can be interleaved with step
          Sparse (fancy-indexing really -- actual indexes that will be selected)
-         Cartesian index (new)
-                  
-An NDTable contains a mapping between domains and chunks.  An NDTable can contain only one chunk but it can also contain many. 
-An NDTable also contains a dimension mapping that creates the shape from the underlying ndtable chunks.  dimensions have properties of ordering and indexing.  Standard dimensions are "integer" based and implicit.  Sparse dimensions replace one or more attributes in another ndtable and one or more dimensions.   Dimensions can be named (sparse dimensions get a default name consisting of their attributes).  Sparse dimensions can be ordered or unordered (i.e. categorical data).
+         Cartesian index (Tensor product of specific per-dimension indexes)
 
-Dimensions can be labeled by a dictionary, 1-d 2-attribute ndtable, or a 2-d ndtable, or an ndarray, that maps a hashable type to an integer. 
+Dimensions:                
+           An NDTable contains a mapping between domains and chunks or
+           dimensions and chunks. 
+           An NDTable can contain only one chunk (i.e. generated
+           arrays, 
 
-An NDTable is indexed via slicing on "dimensions" and accessing attributes.
+           An NDTable also contains a dimension mapping that creates
+           the shape from the underlying ndtable chunks.  
 
-Question:   Should accessing an attribute be the same as accessing dimensions. 
+           Have properties  of ordering and indexing.  Standard
+           dimensions are "integer" based and implicit.  Sparse
+           dimensions replace one or more attributes in another
+           ndtable and one or more dimensions.   Dimensions can be
+           named (sparse dimensions get a default name consisting of
+           their attributes).  Sparse dimensions can be ordered or
+           unordered (i.e. cate
+           Dimensions can be *labeled* by something thaaps a
+           hashable type to an integer: 
+                      * by a dictionary
+                      * 1-d, 2-attribute ndtable
+                      * a 2-d ndtable
+                      * a 1-d 2-attribute ndarray
+                      * a 2-d ndarray  or an ndarray
 
-Only standard dimensions can be chunked. 
+           * An NDTable is indexed via slicing on "dimensions" and accessing attributes.
+           Question:   Should accessing an attribute be the same as
+           accessing dimensions:  Yes, we should treat the attribute
+           list as the last dimension.   One reason: the idea of
+           sparse dimensions could be applied to a any non-attribute
+           based.   Attributes become just another labeled dimension. 
         
+Chunking patterns:
+
+         * Chunking by attributes -- a new chunk for a set of
+         attributes
+         * Chunking by domains -- a chunk is defined by a particular
+         partition of the ND and attribute space
+               * Special cases are chunking along a specific dimension
+               or sub-set of dimensions (i.e. entire range in other
+               dimensions)
+         * Chunking based on a mapping of a subset of the dimensions
+         to a dimensional space that matches the underlying ndtable.
+              The idea here is to support something like Z-order
+              chunking for at least a sub-set of the dimensions.   In
+              the simplest case the underlying buffer would be 1-d
+              (but it could have additional "dimensionality" with just
+              the leading dimension being un-rolled into the other
+              dimensions). 
         
+         All of these chunking patterns are subsumed under the common
+         chunking rule (assuming attributes are seen as a dimension): 
+                  * Chunking divides up the ndtable along 1 or more dimensions of
+                     a mapped index set.   The mapping is Z^n to Z^m
+                     where n and m can be different. 
 
+           e.g. : 
+                * (i,j,k,...) -> (I,J,K,...)   
 
-Dimension information: 
+                then the partition is on blocks of (I,J,K,...)
 
-          Question?  Do we allow attributes to be interpreted as a "dimension" (i.e. given an ordering) -- seems to match intuition
-          How does this interact with attributes creating sparse dimensions by replacing one or more of the other dimensions?
+         Partitions can be:
 
-
-
+          * concatenative (almost) uniform (define the chunk_size (100,200,100) +
+            overlap factor (50,20,20) or just 50 )
+          * concatenative map-based:  start,end N-d coordinates in a hash-table
+            pointing to N-d ndtables
+          * axis-based:  chunk_size + overlap and an axis or set of axes
+          * axis-map-based:  start, end n-d coordinates and a set of n
+            axes in a hash-table pointing to (N-n)-d ndtables.
+        
 Random thoughts:
 
        * Chapel's "vectorize" primitives are interesting consisting of standard "zip" promotion and tensor product promotion:
