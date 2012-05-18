@@ -132,7 +132,8 @@ Chunking patterns:
          chunking rule (assuming attributes are seen as a dimension): 
                   * Chunking divides up the ndtable along 1 or more dimensions of
                      a mapped index set.   The mapping is Z^n to Z^m
-                     where n and m can be different. 
+                     where n and m can be different.   the mapping can
+                     be the identity.
 
            e.g. : 
                 * (i,j,k,...) -> (I,J,K,...)   

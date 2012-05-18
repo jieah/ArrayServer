@@ -1,0 +1,38 @@
+Blaze is Continuum's globally available array concept.   It is not just a library, it is an interface specification with associated tools that conform to its specification.   In that respect it is closer to OpenDAP than to NumPy.   We will provide a reference implementation of Blaze as open source and then create an optimized version that is closed source. 
+
+It seeks to promote array-oriented computing on an enormous scale and bake in concurrency from the beginning seeking to take advantage of concurrency methods of all kinds so as to take advantage of modern hardware in the best possible manner.   It will use C++, Python, Numba, C, or whatever other implementation is needed, but in all-cases will pay close attention to inter-operability and the ability to glue together data-sources and libraries as well as be an environment in which to create new scalable algorithms. 
+
+It is probably easier and more correct to think of the data-model of Blaze as an extended array interface specification which extends the current array interface defined by NumPy and put into the extended buffer protocol.   The extensions contemplated include: 
+   
+   * multiple raw buffers making up a single array (chunks)
+   * ability to define synthetic dimensions across attributes of an array of structures or structure of arrays
+   * ability to define array regions as transformations on raw data-sources (computed regions)
+   * ability to define a selection mask on the array 
+   * ability to define a directed graph for computing fields of the array or the entire array from inputs
+   * ability to define an infinite dimension (streaming) 
+
+The other part of Blaze is the calculation infrastructure.   Here, we are generalizing ufuncs to include any function taking array arguments and returning arrays or scalars.   This includes windowed-functions, generalized ufuncs, ufuncs, and functions like sort and searchsorted. 
+
+What is contemplated is a general computing facility where optimizations are provided for "certain memory layouts" and "algorithms that map to modern hardware".   The goal is to create re-usable layers of abstraction that allow the end user on a web-page interface to express:
+     
+     * where the data in their global array is coming from (memory, disk, socket, other web-address, other published transformation)
+     * what operations they would like to be performed on their array
+     * what the configuration of their available hardware is
+
+The system should take care of computing the result and making it available in downstream applications: 
+
+
+Multiple raw buffers making up a single array
+------------------------------------
+NumPy uses a single buffer on which it overlays a strided view.   We need to be able to accept an layout of data-sources that has separate regions of 1) local memory, 2) local files, 3) gpu memory, 4) memory on other nodes on a network.   In the most general case we could accept anything at all with every element of the array obtained from an entirely different source.   The reason for the array interface, however is to support computation on large chunks of memory at once to fill up the CPU pipeline. 
+
+Example:  the Python Imaging Library (PIL) supports a view of an image as one buffer per row in the image.   This kind of memory layout should be supported by Blaze.
+
+Example:  Pandas allows multiple fields or attributes of the array to be in different memory regions.   There is a mapping from the column name to the memory region (it further optimizes to keep columns of the same type together). 
+
+The optimized implementation will create indexes and adaptors for multiple data sources.    We will prototype this array in Python and use C/C++/Numba as needed to get speed.   
+
+A reference implementation of Blaze will be open source (license to be determined).   An optimized implementation will be closed sourced and sold with a freemium model. 
+
+
+   
