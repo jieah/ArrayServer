@@ -8,68 +8,130 @@ name-server:
              address.  
                                             
 An NDTable object holds and manages the relationship between 
-   a high-level, array-oriented view of a collection of data and the
-   low-level access and interpretation of that data which can be used for compute. 
+   a high-level, array-oriented view of a collection of data buffers and the
+   low-level access and interpretation of those data which can be used for compute. 
 
 NDTables are composed of a number of other ndtables.  In other-words,
 there is a mapping between the shape and attribute lay-out of this
-table and several other ndtables.   An "unchunked" ndtable is either:        
-
-      remote (named with respect to a name-server)
-          computations will be pushed where possible to the node where this array lives
+table and children ndtables.    This recursive definition ends
+at leaf ndtables which are fundamentally either: 
       generated via an expression graph
-      dtyped and transformed byte-buffer
-             * General abstract "storage"
+      dtyped and shaped byte-wrapper (the shaping happens via a 
+            bijective function that maps (i,j,k...) to the Nth byte with
+            striding as a special case)
+            Kinds of byte-buffers:
+             * General abstract "storage" (copies to a buffer through
+                   the interface)
+                      * stream (read N bytes)
+                      * seekable (read byte N to byte M)
              * RAM
+                      * main memory
+                      * gpu memory
              * Random IO (seekable, block-seeking or byte-seeking)
                       * spinning disk
                       * solid state disk
-             * Sequential IO
+             * Sequential IO (buffered)
                       * socket 
                       * usb
                       * RS-232
                       * line-in
                       * frame-grabber
-                      * tv-tuner
                       * other byte-based measurement data-source
              * remote memory
                       * url + 
-                          disk / file
-                          process / pointer
-                          shared memory segment
-                       * this is used to map data actually needed on a machine with no ndtable wrapper
-             - byte-buffers have affinity information providing latency and bandwidth that a compute scheduler can use
-             - byte-buffers are either readonly, writeable, or appendable
+                          - disk / file / offset
+                          - process / pointer
+                          - shared memory segment
+                       * this is used to map data actually needed on a
+                                 machine with no ndtable wrapper
+                                 (normally one would wrap the ndtable
+                                  on the machine where the data lives and use the remote
+                                  ndtable facility).
+             * byte-buffers have affinity information providing latency and bandwidth that a compute scheduler can use
+             * byte-buffers are not growable (and can be readonly or writeable)
+             * to grow an ndtable you create a new byte-buffer and map
+                  it to the ndtable   
+             * byte-buffers can have an optional, separate selection mask with
+                it's own dtype and "stride" function but has the same
+                shape as the underlying mask.
 
-Each byte-buffer has a corresponding dtype which describes how the "bytes" should be interpreted during compute / processing
+      Children can be ndtables (either named with respect to a
+          name-server or identified uniquely via url + id or if only
+          id than url is local) --- computations will be
+          pushed where possible to the node where this array lives
+
+DType: 
+       A dtype is low-level data-type or dynamic type.  It is a
+       byte-level dynamic typing system that defines how a collection
+       of bytes should be interpreted by the calculation engine.  In
+       contrast to static typing systems which are applied at
+       compilation time, the dtype provides information and compute
+       dispatch capability layered over the bits at run-time.
+
+Each byte-buffer has a corresponding dtype which describes how the
+     individual "bytes" should be interpreted during compute / processing
      To the standard NumPy dtypes we add: 
         * bit-pattern dtypes (a bit-pattern reserved for a mask)
-        * masked dtypes (a bit-mask added for every N elements where N is a multiple of some word-size like 32 or 64)
-        * arbitrary precision floats
-        * arbitrary precision complex numbers
-        * big integers
+        * masked dtypes
+           *  a bit-mask added for every N elements where N is a
+                 multiple of some word-size like 32 or 64)
         * level dtypes
-        * pointer dtypes (what is stored in the memory of a dtype is a reference to the actual data)
-                * vararray dtypes (these are "ragged" dtypes where the memory is actually stored elsewhere and managed separately)
-                * varutf8 dtypes
-                * varbytes dtypes
-                * pointer to a dtype 
-                * pointer to another dtype-mapped buffer (this allows C-style arrays to be understood) 
-                * far-reference dtypes (url + (disk, file) or url + (process, pointer))
+        * reference dtypes (what is stored in the memory of a dtype is
+     a reference to the actual data)
+             * arbitrary precision floats
+             * arbitrary precision complex numbers
+             * big integers
+             * vararray dtypes (these are "ragged" dtypes where the memory is actually stored elsewhere and managed separately)
+             * varutf8 dtypes
+             * varbytes dtypes
+             * reference to another dtype 
+             * reference to another dtype-mapped buffer (this allows C-style arrays to be understood) 
+             * far-reference dtypes (url + (disk, file, offset) or
+                             url + (process, pointer))
+             * general Object
+
         * array dtypes which take an index-mapping function to map the 'i,j,k,...' element to the linear N'th element of the array
                 * special-case for strided cases
                 * special-case for C-contiguous
                 * special-case for F-contiguous
-                * array dtypes maintain their character when constructed so that a (2,) array of (2,3) array-dtypes continues to have a shape of (2,) where every element is a (2,3) array.
+                * array dtypes maintain their character when
+                     constructed so that a (2,) array of (2,3) array-dtypes continues
+                      to have a shape of (2,) where every element is a
+                           (2,3) array.
+                * array dtypes can also have a separate, associated selection buffer
+                     which uses the same index-mapping function but a
+                     separate dtype and location for the memory for a
+                     selection "mask"
+
         * expression dtypes (including expressions with null storage --- i.e. generated data).  
         * derived fields in structured arrays...
-        * cell dtypes
-        * block-expression dtypes (these dtypes are similar to expression dtypes except they take N elements of the underlying storage and return M elements of the result).   Indexes?  Variable-length blocks (N and/or M varying)?  Streams?  
-        * Notice that a "transformation function" is subsubmed by the block-expression dtypes. 
+        * cell dtypes (result based on domain of another ndtable)
+        * block-expression dtypes (these dtypes are similar to
+           expression dtypes except they take N elements of the
+           underlying storage and return M elements of the result).
+           Several cases: 
+                   N and M fixed --- easiest case (no index required)
+                   N fixed M varying 
+                   N varying M fixed
+                   N and M both varying 
+                   streaming
 
-        * Notice that a traditional dynamically allocated C-array with separate memory buffers can be understood with a memory buffer dtype that is a pointer to pointer to fundamental with a pointer to pointer to dtype 
+                   Index can be added to a block-expression dtype to
+                   navigate and provide ability to reason about shape 
+                   prior to run-time 
+                   Otherwise there are "unknown shape values" (-1)
 
-        * Notice also that a traditional NumPy array is contained entirely in the array-dtype
+                   CSV-parsing is an example of N varying but M fixed.
+
+           Notice that a "transformation function" is subsubmed by the block-expression dtypes. 
+
+        * Notice that a traditional dynamically allocated C-array with
+          separate memory buffers can be understood with a memory
+          buffer dtype that is a pointer to pointer to fundamental
+          with a pointer to pointer to dtype  
+
+        * Notice also that a traditional NumPy array is contained
+          entirely in the array-dtype 
 
 Domains: 
 
