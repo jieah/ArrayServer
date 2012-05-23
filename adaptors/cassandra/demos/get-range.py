@@ -1,0 +1,108 @@
+# Demo that creates a Cassandra keyspace and a column family, and
+# populates it with some entries.  Then the script show how to load
+# the entries into a regular Python list, as well as on a NumPy
+# container.
+#
+# Author: Francesc Alted
+# Date: 2012-05-23
+
+from pycassa.pool import ConnectionPool
+from pycassa.columnfamily import ColumnFamily
+from pycassa import system_manager
+import datetime
+import numpy as np
+from time import time
+import sys
+
+
+keyspace = "Keyspace3"
+columnfamily = "ColumnFamily2"
+N = 10000   # number of entries
+
+
+cass_numpy_map = {
+    "AsciiType": np.str_,
+    "IntegerType": np.int32,
+    "LongType": np.int64,
+    "FloatType": np.float32,
+    "DoubleType": np.float64,
+    "DateType": "datetime64[us]",
+}
+
+
+def write(cf, nentries=N):
+    print "Writing...", nentries, "entries"
+    t0 = time()
+    for i in xrange(nentries):
+        cf.insert('row_%d'%i, {
+            'strcol': 'val_%d'%i,
+            'intcol': i,
+            'longcol': i,
+            'floatcol': i,
+            'doublecol': i,
+            'datecol': datetime.datetime.now(),
+            })
+    print "Time for writing:", round(time()-t0, 3)
+    return nentries
+
+
+def read_cl(cf):
+    print "Reading in comprehension list..."
+    t0 = time()
+    result = [(key, columns) for key, columns in cf.get_range()]
+    print "Time for reading:", round(time()-t0, 3)
+    return result
+
+
+def read_np(cf):
+    print "Reading in structured array..."
+    t0 = time()
+
+    # Create the compound dtype
+    cfs = sysm.get_keyspace_column_families(keyspace, use_dict_for_col_metadata=False)
+    colmeta = cfs[columnfamily].column_metadata
+    dtype = [("key", np.str_, 16)]   # XXX Fix me
+    for coldef in colmeta:
+        name = coldef.name
+        ctype = coldef.validation_class.split(".")[-1]
+        nptype = cass_numpy_map[ctype]
+        
+        length = 1 if ctype != "AsciiType" else 16  # XXX Fix me
+        dtype.append((name, nptype, length))
+    dtype = np.dtype(dtype)
+
+    # Fill the structured array
+    sarray = np.fromiter(
+        ((key,) + tuple([cols[name] for name in dtype.names if name != "key"])
+         for key, cols in cf.get_range()),
+        dtype=dtype)
+    print "Time for reading:", round(time()-t0, 3)
+    return sarray
+
+
+def setup_keyspace(sysm):
+    if keyspace in sysm.list_keyspaces():
+        sysm.drop_keyspace(keyspace)
+    sysm.create_keyspace(keyspace, system_manager.SIMPLE_STRATEGY,
+                         {'replication_factor': '1'})
+    sysm.create_column_family(keyspace, columnfamily)
+    sysm.alter_column(keyspace, columnfamily, 'strcol', system_manager.ASCII_TYPE)
+    sysm.alter_column(keyspace, columnfamily, 'intcol', system_manager.INT_TYPE)
+    sysm.alter_column(keyspace, columnfamily, 'longcol', system_manager.LONG_TYPE)
+    sysm.alter_column(keyspace, columnfamily, 'floatcol', system_manager.FLOAT_TYPE)
+    sysm.alter_column(keyspace, columnfamily, 'doublecol', system_manager.DOUBLE_TYPE)
+    sysm.alter_column(keyspace, columnfamily, 'datecol', system_manager.DATE_TYPE)
+
+
+if __name__ == "__main__":
+    sysm = system_manager.SystemManager()
+    setup_keyspace(sysm)
+    pool = ConnectionPool(keyspace)
+    cf = ColumnFamily(pool, columnfamily)
+
+    # Write and read keys
+    write(cf)
+    clist = read_cl(cf)
+    print "First rows of clist ->", clist[:10]
+    sarray = read_np(cf)
+    print "First rows of sarray->", repr(sarray[:10])
