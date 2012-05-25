@@ -5,8 +5,8 @@ name-server
    maps name to url with array-server and id of array on that machine
    uniqueness is guaranteed on a single name-server only (for now).  The url +
    id is already a unique name, this is just a short-hand for use in
-   applications.  It's like a variable name in an application as opposed to a
-   memory address.  
+   applications.  It's like a variable name in an application except
+   it maps to a global addressing space instead of a single memory address
 
 
 NDTable
@@ -78,11 +78,12 @@ Each byte-buffer has a corresponding dtype which describes how the individual
 NumPy dtypes we add: 
 
   * bit-pattern dtypes (a bit-pattern reserved for a mask)
-  * masked dtypes: a bit-mask added for every N elements where N is a multiple
-    of some word-size like 32 or 64)
-  * level dtypes
-  * reference dtypes (what is stored in the memory of a dtype is a reference to
-    the actual data)
+  * masked dtypes?: a bit-mask pad for every N elements where N is a multiple
+    of some word-size like 32 or 64.   e.g. for every 128 elements
+    there is a 128-bit mask-field appended)
+  * level dtypes (enumerations)
+  * reference dtypes (what is stored in the bits is actually a reference to
+     something else)
 
      * arbitrary precision floats
      * arbitrary precision complex numbers
@@ -239,5 +240,50 @@ Read:   http://chapel.cray.com/spec/spec-0.775.pdf
 
 Chapel also has the notion of locales which are compute-and-memory nodes.  We
 will borrow this idea. 
+
+
+Generalized Functions (gfuncs)
+====================
+
+Crucial to the implementation of Blaze is a libray for creating fast
+functions that operate on Blaze data.  A Generalized function or GFunc
+is a generalization of Ufuncs in NumPy.  It is an object that maps iteration over its arguments to a particular
+computational kernel.   The computation kernel performs the
+"inner-most loop of the computation" and the gfunc handles application
+of that kernel to a larger ndtable including ensuring that the kernel
+is called with small enough chunks of data to allow optimal caching
+effects. 
+
+Gfunc kernels should be written to do enough work to minimize the
+over-head of a C-level function-call.   For example, a "sin" gfunc
+should compute the "sin" of N-elements and not just one.    These
+elements can be assumed to be contiguous in memory. 
+
+The Gfunc run-time will take care of "buffering" the calculation so
+that actual data will be copied to intermediate buffers in order to
+complete the calculation.   In practice, to support large, out-of-core
+calculations, gfuncs will be chained.   The gfunc run-time will need
+to support the construction of this chain and the calling of the
+underlying function on the result. 
+
+Simple Example: 
+
+ a = b + sin(c*d) 
+
+would return to an "expression" ndtable, if b, c, or d is an
+ndtable.   A sync method would need to be called (blocking or
+asynchronous) to actually perform the calculation.   
+
+The ndtable machinery will need to schedule computation on each node
+where the data lives and communicate with the blaze server running on
+each node participating in the cluster.  
+
+On each blaze server, the local gfunc machinery would need to take the
+expression graph specifying the calculations the relevant input
+and output ndtables in the expression and iterate over the data appropriately using the
+kernels on chunk sizes that keep L3 cache coherency (around 20k
+elements).
+
+
 
 
