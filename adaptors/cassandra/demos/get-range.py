@@ -14,10 +14,12 @@ import numpy as np
 from time import time
 import sys
 
+from blacass import mapper
 
-keyspace = "Keyspace3"
+
+keyspace = "Keyspace4"
 columnfamily = "ColumnFamily2"
-N = 10000   # number of entries
+N = 1000   # number of entries
 
 
 cass_numpy_map = {
@@ -54,20 +56,22 @@ def read_cl(cf):
     return result
 
 
-def read_np(cf):
+def read_np(cf, conffile):
     print "Reading in structured array..."
     t0 = time()
 
     # Create the compound dtype
     cfs = sysm.get_keyspace_column_families(keyspace, use_dict_for_col_metadata=False)
     colmeta = cfs[columnfamily].column_metadata
-    dtype = [("key", np.str_, 16)]   # XXX Fix me
+    cfg = mapper.mapper(conffile, keyspace, columnfamily)
+    key = cfg['__key__']
+    dtype = [("key", key.dtype, key.length)]
     for coldef in colmeta:
         name = coldef.name
-        ctype = coldef.validation_class.split(".")[-1]
-        nptype = cass_numpy_map[ctype]
-        
-        length = 1 if ctype != "AsciiType" else 16  # XXX Fix me
+        #ctype = coldef.validation_class.split(".")[-1]
+        #npctype = cass_numpy_map[ctype]
+        nptype = cfg[name].dtype
+        length = cfg[name].length
         dtype.append((name, nptype, length))
     dtype = np.dtype(dtype)
 
@@ -95,6 +99,11 @@ def setup_keyspace(sysm):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print "Error.  Pass the name of the YAML configuration file as parameter."
+        sys.exit(-1)
+    conffile = sys.argv[1]
+
     sysm = system_manager.SystemManager()
     setup_keyspace(sysm)
     pool = ConnectionPool(keyspace)
@@ -104,5 +113,5 @@ if __name__ == "__main__":
     write(cf)
     clist = read_cl(cf)
     print "First rows of clist ->", clist[:10]
-    sarray = read_np(cf)
+    sarray = read_np(cf, conffile)
     print "First rows of sarray->", repr(sarray[:10])
