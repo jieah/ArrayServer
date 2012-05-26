@@ -1,6 +1,10 @@
+#
+# Configuration file to define how the different columns should be mapped into NumPy dtypes.
+#
+
 Keyspaces:
 
-  Keyspace4:
+  Keyspace5:
 
     ColumnFamily2:
       __key__: Bytes(length=16)

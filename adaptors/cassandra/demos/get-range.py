@@ -17,19 +17,10 @@ import sys
 from blacass import mapper
 
 
-keyspace = "Keyspace4"
+keyspace = "Keyspace5"
 columnfamily = "ColumnFamily2"
 N = 1000   # number of entries
 
-
-cass_numpy_map = {
-    "AsciiType": np.str_,
-    "IntegerType": np.int32,
-    "LongType": np.int64,
-    "FloatType": np.float32,
-    "DoubleType": np.float64,
-    "DateType": "datetime64[us]",
-}
 
 
 def write(cf, nentries=N):
@@ -68,8 +59,6 @@ def read_np(cf, conffile):
     dtype = [("key", key.dtype, key.length)]
     for coldef in colmeta:
         name = coldef.name
-        #ctype = coldef.validation_class.split(".")[-1]
-        #npctype = cass_numpy_map[ctype]
         nptype = cfg[name].dtype
         length = cfg[name].length
         dtype.append((name, nptype, length))

@@ -1,24 +1,44 @@
+#
+# Module for reading a YAML config file that explicits how to map Cassandra data into NumPy
+#
+# Author: Francesc Alted
+# Date: 2012-05-26
+
 import yaml
-import numpy as np
+
+
+# Allowed types in YAML configuration file and mapping to NumPy dtypes
+ktypes = {'Bytes': 'str_',
+          'Unicode': 'unicode_',
+          'Int8': 'int8',
+          'UInt8': 'uint8',
+          'Int16': 'int16',
+          'UInt16': 'uint16',
+          'Int32': 'int32',
+          'UInt32': 'uint32',
+          'Int64': 'int64',
+          'UInt64': 'uint64',
+          'Float32': 'float32',
+          'Float64': 'float64',
+          'Datetime64': 'datetime64[us]',   # default is to use microseconds units
+          }
+
 
 class StringType(object):
     def __init__(self, python=False, length=-1, trunc_err=False):
         self.python = python
         self.length = length
         self.trunc_err = trunc_err
+        self.dtype = ktypes[self.__class__.__name__]
     def __repr__(self):
         return "%s(python=%r, length=%r, trunc_err=%r)" % (
             self.__class__.__name__, self.python, self.length, self.trunc_err)
 
 class Bytes(StringType):
-    def __init__(self, python=False, length=-1, trunc_err=False):
-        StringType.__init__(self, python, length, trunc_err)
-        self.dtype = np.str_
+    pass
 
 class Unicode(StringType):
-    def __init__(self, python=False, length=-1, trunc_err=False):
-        StringType.__init__(self, python, length, trunc_err)
-        self.dtype = np.unicode_
+    pass
 
 class NumberType(object):
     def __init__(self, default=None, sentinel=None, nonnull=False):
@@ -26,59 +46,40 @@ class NumberType(object):
         self.sentinel = sentinel
         self.nonnull = nonnull
         self.length = 1
+        self.dtype = ktypes[self.__class__.__name__]
     def __repr__(self):
         return "%s(default=%r, sentinel=%r, nonnull=%r)" % (
             self.__class__.__name__, self.default, self.sentinel, self.nonnull)
 
 class Int8(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.int8
+    pass
 
 class UInt8(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.uint8
+    pass
 
 class Int16(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.int16
+    pass
 
 class UInt16(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.uint16
+    pass
 
 class Int32(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.int32
+    pass
 
 class UInt32(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.uint32
+    pass
 
 class Int64(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.int64
+    pass
 
 class UInt64(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.uint64
+    pass
 
 class Float32(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.float32
+    pass
 
 class Float64(NumberType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        NumberType.__init__(self, default, sentinel, nonnull)
-        self.dtype = np.float64
+    pass
 
 class DateType(object):
     def __init__(self, default=None, sentinel=None, nonnull=False):
@@ -86,27 +87,23 @@ class DateType(object):
         self.sentinel = sentinel
         self.nonnull = nonnull
         self.length = 1
+        self.dtype = ktypes[self.__class__.__name__]
     def __repr__(self):
         return "%s(default=%r, sentinel=%r, nonnull=%r)" % (
             self.__class__.__name__, self.default, self.sentinel, self.nonnull)
 
 class Datetime64(DateType):
-    def __init__(self, default=None, sentinel=None, nonnull=False):
-        DateType.__init__(self, default, sentinel, nonnull)
-        self.dtype = "datetime64[us]"
+    pass
 
-
-# Allowed types in YAML configuration file
-ktypes = ['Bytes', 'Unicode',
-          'Int8', 'UInt8',
-          'Int16', 'UInt16',
-          'Int32', 'UInt32',
-          'Int64', 'UInt64',
-          'Float32', 'Float64',
-          'Datetime64']
 
 
 def mapper(filename, keyspace, columnfamily):
+    """Parse config file to get info about the conversions.
+
+    `filename` -- The configuration file (YAML format)
+    `keyspace` -- The keyspace to select
+    `columnfamily` -- The ColumnFamily to select
+    """
     f = open(filename, 'r')
 
     config = yaml.load(f)
@@ -115,10 +112,11 @@ def mapper(filename, keyspace, columnfamily):
 
     cf = config['Keyspaces'][keyspace][columnfamily]
     retcf = {}
+    allowed_types = ktypes.keys()
     for name in cf:
         ks = cf[name]
         kn = ks.split('(')[0].strip()
-        if kn not in ktypes:
+        if kn not in allowed_types:
             raise ValueError("Data type `%s` not understood" % ks)
         try:
             klass = eval(ks)
@@ -130,5 +128,5 @@ def mapper(filename, keyspace, columnfamily):
     return retcf
 
 if __name__ == "__main__":
-    retcf = mapper('get-range.yaml', 'Keyspace4', 'ColumnFamily2')
+    retcf = mapper('demos/get-range.yaml', 'Keyspace4', 'ColumnFamily2')
     print "retcf->", retcf
