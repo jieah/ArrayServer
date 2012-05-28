@@ -25,14 +25,14 @@ ktypes = {'Bytes': 'str_',
 
 
 class StringType(object):
-    def __init__(self, python=False, length=-1, trunc_err=False):
-        self.python = python
+    def __init__(self, np_object=True, length=-1, trunc_err=False):
+        self.np_object = np_object
         self.length = length
         self.trunc_err = trunc_err
         self.dtype = ktypes[self.__class__.__name__]
     def __repr__(self):
-        return "%s(python=%r, length=%r, trunc_err=%r)" % (
-            self.__class__.__name__, self.python, self.length, self.trunc_err)
+        return "%s(np_object=%r, length=%r, trunc_err=%r)" % (
+            self.__class__.__name__, self.np_object, self.length, self.trunc_err)
 
 class Bytes(StringType):
     pass

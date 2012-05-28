@@ -40,7 +40,7 @@ def write(cf, nentries=N):
 
 
 def read_cl(cf):
-    print "Reading in comprehension list..."
+    print "Reading to comprehension list..."
     t0 = time()
     result = [(key, columns) for key, columns in cf.get_range()]
     print "Time for reading:", round(time()-t0, 3)
@@ -48,7 +48,7 @@ def read_cl(cf):
 
 
 def read_np(cf, conffile):
-    print "Reading in structured array..."
+    print "Reading to structured array..."
     t0 = time()
 
     # Create the compound dtype
