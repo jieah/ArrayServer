@@ -29,15 +29,15 @@ try:
 except:
     pass
 
-config = blazeconfig.BlazeConfig(shelve.open(pathmapfile, 'c'),
-                                 shelve.open(reversemapfile, 'c'))
+pathmap = blazeconfig.InMemoryMap()
+reversemap = blazeconfig.InMemoryMap()
+
+config = blazeconfig.BlazeConfig(pathmap, reversemap)
 blazeconfig.generate_config_hdf5(servername, blazeprefix, datapath, config)
 config.sync()
 
 def run_node():
     log.debug("starting node")
-    pathmap = shelve.open(pathmapfile)
-    reversemap = shelve.open(reversemapfile)
     config = blazeconfig.BlazeConfig(pathmap, reversemap)
     node = blazenode.BlazeNode(backaddr, servername, config)
     node.start()
