@@ -1,0 +1,16 @@
+#
+# Configuration file to define how the different columns should be mapped into NumPy dtypes.
+#
+
+Databases:
+
+  database1:
+
+    collection1:
+      _id: Bytes(length=32)
+      strcol: Unicode(length=20)
+      intcol: Int32()
+      longcol: Int64()
+      floatcol: Float32()
+      doublecol: Float64()
+      datecol: Datetime64()
