@@ -17,7 +17,7 @@ from blamon import mapper
 
 database = "database1"
 collection = "collection1"
-N = 10   # number of entries
+N = 10000   # number of entries
 
 
 def write(coll, nentries=N):
@@ -50,19 +50,12 @@ def read_np(coll, conffile):
 
     # Create the compound dtype
     cfg = mapper.mapper(conffile, database, collection)
-    key = cfg['_id']
-    dtype = [("_id", key.dtype, key.length)]
-    colmeta = coll.find_one()
-    for name, value in colmeta:
-        nptype = cfg[name].dtype
-        length = cfg[name].length
-        dtype.append((name, nptype, length))
+    dtype = [(str(name), t.dtype, t.length) for name, t in cfg.iteritems()]
     dtype = np.dtype(dtype)
 
     # Fill the structured array
     sarray = np.fromiter(
-        (str(_id,) + tuple([cols[name] for name in dtype.names if name != "_id"])
-         for name, vals in coll.find().iteritems()),
+        (tuple([cols[name] for name in dtype.names]) for cols in coll.find()),
         dtype=dtype)
     print "Time for reading:", round(time()-t0, 3)
     return sarray
@@ -82,14 +75,9 @@ if __name__ == "__main__":
 
     # Write and read keys
     write(coll)
-    print "collections ->", db.collection_names()
     
-    # rec = coll.find_one()
-    # for name, val in rec.iteritems():
-    #     print "name, val, type->", name, val, type(val)
-
     clist = read_cl(coll)
-    print "First rows of clist ->", clist[:10]
+    #print "First rows of clist ->", clist[:10]
 
-    #sarray = read_np(coll, conffile)
-    #print "First rows of sarray->", repr(sarray[:10])
+    sarray = read_np(coll, conffile)
+    print "First rows of sarray->", repr(sarray[:10])

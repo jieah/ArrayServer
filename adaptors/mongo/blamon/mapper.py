@@ -107,7 +107,6 @@ def mapper(filename, database, collection):
     f = open(filename, 'r')
 
     config = yaml.load(f)
-    print config
     f.close()
 
     cf = config['Databases'][database][collection]
