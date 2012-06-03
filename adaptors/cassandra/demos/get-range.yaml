@@ -4,7 +4,7 @@
 
 Keyspaces:
 
-  Keyspace5:
+  Keyspace6:
 
     ColumnFamily2:
       __key__: Bytes(length=16)

@@ -17,9 +17,9 @@ import sys
 from blacass import mapper
 
 
-keyspace = "Keyspace5"
+keyspace = "Keyspace6"
 columnfamily = "ColumnFamily2"
-N = 1000   # number of entries
+N = 10000   # number of entries
 
 
 
@@ -52,23 +52,27 @@ def read_np(cf, conffile):
     t0 = time()
 
     # Create the compound dtype
-    cfs = sysm.get_keyspace_column_families(keyspace, use_dict_for_col_metadata=False)
-    colmeta = cfs[columnfamily].column_metadata
     cfg = mapper.mapper(conffile, keyspace, columnfamily)
-    key = cfg['__key__']
-    dtype = [("key", key.dtype, key.length)]
-    for coldef in colmeta:
-        name = coldef.name
-        nptype = cfg[name].dtype
-        length = cfg[name].length
-        dtype.append((name, nptype, length))
+    dtype = []
+    if '__key__' in cfg:
+        key = cfg['__key__']
+        dtype = [("__key__", key.dtype, key.length)]
+    for name, t in cfg.iteritems():
+        if name != "__key__":
+            dtype.append((name, t.dtype, t.length))
     dtype = np.dtype(dtype)
 
     # Fill the structured array
-    sarray = np.fromiter(
-        ((key,) + tuple([cols[name] for name in dtype.names if name != "key"])
-         for key, cols in cf.get_range()),
-        dtype=dtype)
+    if '__key__' in cfg:
+        sarray = np.fromiter(
+            ((key,) + tuple([cols[name] for name in dtype.names if name != "__key__"])
+             for key, cols in cf.get_range()),
+            dtype=dtype)
+    else:
+        sarray = np.fromiter(
+            (tuple([cols[name] for name in dtype.names])
+             for key, cols in cf.get_range()),
+            dtype=dtype)
     print "Time for reading:", round(time()-t0, 3)
     return sarray
 
@@ -101,6 +105,6 @@ if __name__ == "__main__":
     # Write and read keys
     write(cf)
     clist = read_cl(cf)
-    print "First rows of clist ->", clist[:10]
+    #print "First rows of clist ->", clist[:10]
     sarray = read_np(cf, conffile)
     print "First rows of sarray->", repr(sarray[:10])
