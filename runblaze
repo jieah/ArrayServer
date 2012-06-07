@@ -1,0 +1,2 @@
+#!/bin/bash
+python blaze/server/test_adhoc/run.py
