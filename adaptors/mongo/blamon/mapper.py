@@ -97,19 +97,19 @@ class Datetime64(DateType):
 
 
 
-def mapper(filename, keyspace, columnfamily):
+def mapper(filename, database, collection):
     """Parse config file to get info about the conversions.
 
     `filename` -- The configuration file (YAML format)
-    `keyspace` -- The keyspace to select
-    `columnfamily` -- The ColumnFamily to select
+    `database` -- The database to select
+    `collection` -- The collection to select
     """
     f = open(filename, 'r')
 
     config = yaml.load(f)
     f.close()
 
-    cf = config['Keyspaces'][keyspace][columnfamily]
+    cf = config['Databases'][database][collection]
     retcf = {}
     allowed_types = ktypes.keys()
     for name in cf:
@@ -127,5 +127,5 @@ def mapper(filename, keyspace, columnfamily):
     return retcf
 
 if __name__ == "__main__":
-    retcf = mapper('demos/get-range.yaml', 'Keyspace4', 'ColumnFamily2')
+    retcf = mapper('demos/get-range.yaml', 'database1', 'collection1')
     print "retcf->", retcf

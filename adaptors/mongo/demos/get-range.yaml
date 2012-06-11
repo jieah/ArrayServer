@@ -2,12 +2,12 @@
 # Configuration file to define how the different columns should be mapped into NumPy dtypes.
 #
 
-Keyspaces:
+Databases:
 
-  Keyspace6:
+  database1:
 
-    ColumnFamily2:
-      __key__: Bytes(length=16)
+    collection1:
+      _id: Bytes(length=32)
       strcol: Unicode(length=20)
       intcol: Int32()
       longcol: Int64()
