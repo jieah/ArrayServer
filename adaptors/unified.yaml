@@ -1,0 +1,66 @@
+MongoProd:
+  type : mongo
+  Connection : 
+    host : localhost
+    port : 8080
+  Databases:
+    database1:
+      collection1:
+        #in blaze, this would be mapped to /MongoProd/database1/collection1
+        _id: Bytes(length=32)
+        strcol: Unicode(length=20)
+        intcol: Int32()
+        longcol: Int64()
+        floatcol: Float32()
+        doublecol: Float64()
+        datecol: Datetime64()
+MongoDev:
+  type : mongo
+  Connection : 
+    host : localhost
+    port : 9090
+  Databases:
+    database1:
+      collection1:
+        #in blaze, this would be mapped to /MongDev/database1/collection1        
+        _id: Bytes(length=32)
+        strcol: Unicode(length=20)
+        intcol: Int32()
+        longcol: Int64()
+        floatcol: Float32()
+        doublecol: Float64()
+        datecol: Datetime64()
+CassandraProd:
+  Connection :
+    host : localhost
+    port : 8020
+  Keyspaces:
+    Keyspace6:
+      ColumnFamily2:
+        #in blaze, this would be mapped to /CassandraProd/database1/collection1
+        __key__: Bytes(length=16)
+        strcol: Unicode(length=20)
+        intcol: Int32()
+        longcol: Int64()
+        floatcol: Float32()
+        doublecol: Float64()
+        datecol: Datetime64()
+CassandraDev:
+  Connection :
+    host : localhost
+    port : 8030
+  Keyspaces:
+    Keyspace6:
+      ColumnFamily2:
+        #in blaze, this would be mapped to /CassandraDev/database1/collection1
+        __key__: Bytes(length=16)
+        strcol: Unicode(length=20)
+        intcol: Int32()
+        longcol: Int64()
+        floatcol: Float32()
+        doublecol: Float64()
+        datecol: Datetime64()
+
+SomeTextFiles:
+  Sources:
+    pricedata: 
