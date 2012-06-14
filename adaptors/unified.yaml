@@ -1,8 +1,12 @@
+# prefix:
+#   type : typename
+#   any relevant information for the type
+#   the original configuration
+
 MongoProd:
   type : mongo
-  Connection : 
-    host : localhost
-    port : 8080
+  host : localhost
+  port : 8080
   Databases:
     database1:
       collection1:
@@ -16,9 +20,8 @@ MongoProd:
         datecol: Datetime64()
 MongoDev:
   type : mongo
-  Connection : 
-    host : localhost
-    port : 9090
+  host : localhost
+  port : 9090
   Databases:
     database1:
       collection1:
@@ -31,9 +34,9 @@ MongoDev:
         doublecol: Float64()
         datecol: Datetime64()
 CassandraProd:
-  Connection :
-    host : localhost
-    port : 8020
+  type : cassandra
+  host : localhost
+  port : 8020
   Keyspaces:
     Keyspace6:
       ColumnFamily2:
@@ -46,9 +49,9 @@ CassandraProd:
         doublecol: Float64()
         datecol: Datetime64()
 CassandraDev:
-  Connection :
-    host : localhost
-    port : 8030
+  type : cassandra  
+  host : localhost
+  port : 8030
   Keyspaces:
     Keyspace6:
       ColumnFamily2:
@@ -61,6 +64,15 @@ CassandraDev:
         doublecol: Float64()
         datecol: Datetime64()
 
+#jay is flushin this type out
 SomeTextFiles:
+  type : txt
   Sources:
     pricedata: 
+
+MyDataGroup:
+  type : native #our native type is a directory full of hdf5 files
+  paths :
+    prices : /mnt/data/prices
+    transactions : /mnt/data/transactions
+  
