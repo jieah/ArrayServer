@@ -1,30 +1,35 @@
 import subprocess
 import os
 
-def start_redis(port, data_dir, data_file='redis.db', logfile='redis.log'):
+def start_redis(port, data_dir, data_file='redis.db', log_file='redis.log', save=True):
     base_config = os.path.join(os.path.dirname(__file__), 'redis.conf')
-    logfile = open(os.path.join(data_dir, logfile), 'w+')
+    log_file = open(os.path.join(data_dir, log_file), 'w+')
     with open(base_config) as f:
         redisconf = f.read()
+    savestr = ''
+    if save: savestr = 'save 10 1'
     redisconf = redisconf % {'port' : port,
                              'dbdir' : data_dir,
-                             'dbfile' : data_file}
+                             'dbfile' : data_file,
+                             'save' : savestr}
+    
     proc = subprocess.Popen(['redis-server', '-'],
-                            stdout=logfile,
+                            stdout=log_file,
                             stdin=subprocess.PIPE,
-                            stderr=logfile)
+                            stderr=log_file)
     proc.stdin.write(redisconf)
     proc.stdin.close()
     return proc
                      
 
 class RedisProcess(object):
-    def __init__(self, port, data_dir, data_file='redis.db', logfile='redis.log'):
+    def __init__(self, port, data_dir, data_file='redis.db',
+                 log_file='redis.log', save=True):
         self.proc = start_redis(port, data_dir,
-                                data_file=data_file, logfile=logfile)
+                                data_file=data_file,
+                                log_file=log_file,
+                                save=save)
     def __del__(self):
         self.proc.kill()
         self.proc.communicate()
         
-
-                

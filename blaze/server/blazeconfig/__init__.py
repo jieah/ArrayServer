@@ -2,24 +2,47 @@ import tables
 import logging
 import shelve
 import os
-import rpc.server as server
+#wow our naming is ridiculous...
+import blaze.server.rpc.server as server
+import orderedyaml
+import yaml
 log = logging.getLogger(__name__)
 import collections
 import simplejson
 import numpy
-
+import posixpath as blazepath
+import blaze.server.redisutils as redisutils
+import redis
+import cPickle as pickle
 DatasetSource = collections.namedtuple('DatasetSource', ['type', 'servername', 'filepath', 'hdf5path', 'shard', 'totalshards', 'dtype', 'shape'])
 GroupSource = collections.namedtuple('GroupSource', ['type', 'servername', 'filepath', 'hdf5path'])
+
+def serialize(obj):
+    return pickle.dumps(obj)
+        
+def deserialize(strdata):
+    if strdata is None:
+        return None
+    else:
+        return pickle.loads(strdata)
+    
+def hget(client, key, field):
+    return deserialize(client.hget(key, field))
+
+def hset(client, key, field, val):
+    return client.hset(key, field, serialize(val))
+
 
 #dict with a sync function that does nothing,
 #this way we can use the same code for
 #the in memory, or on disk maps
+
 def path_history(path):
     paths = []
     currpath = path
     while currpath != "/":
         paths.append(currpath)
-        base = os.path.dirname(currpath)
+        base = blazepath.dirname(currpath)
         currpath = base
     paths.append("/")
     paths.reverse()
@@ -33,151 +56,189 @@ class BlazeConfigError(Exception):
     pass
 
 class BlazeConfig(object):
-    def __init__(self, pathmap, reversemap):
-        self.pathmap = pathmap
-        self.reversemap = reversemap
-        #ensure root node exists
-        if self.get_node('/') is None:
-            self.pathmap['/'] = self.group_obj([])
-
-    def create_inmemory_config(self):
-        return BlazeConfig(InMemoryMap(self.pathmap),
-                           InMemoryMap(self.reversemap))
-    def sync(self):
-        self.pathmap.sync()
-        self.reversemap.sync()
-
+    def __init__(self, servername, sourceconfig=None,
+                 host='localhost', port=6709):
+        """
+        Parameters
+        ---------
+        servername : name of this server
+        sourceconfig : usually loaded from yaml,
+            tells blaze which data sources it knows about
+        """
+        self.servername = servername
+        self.sourceconfig = sourceconfig
+        self.client = redis.Redis(host=host, port=port)
+        self.pathmap_key = 'pathmap'
+        self.reversemap_key = 'reversemap:' + self.servername
+        
+        if not self.client.hexists(self.pathmap_key, '/'):
+            with self.client.pipeline() as pipe:
+                pipe.watch(self.pathmap_key)
+                pipe.multi()
+                if not self.client.hexists(self.pathmap_key, '/'):
+                    hset(pipe, self.pathmap_key, '/', self.group_obj([]))
+                pipe.execute()
+                
     def create_group(self, path):
-        self.safe_insert(os.path.dirname(path),
-                         os.path.basename(path),
+        self.safe_insert(blazepath.dirname(path),
+                         blazepath.basename(path),
                          self.group_obj([]))
 
     def group_obj(self, children):
         return {'type' : 'group',
                 'children' : children}
-    def source_obj(self, servername, type, filepath, shard, localpath):
-        return {'type' : type,
-                'servername' : servername,
-                'filepath' : filepath,
-                'shard' : shard,
-                'localpath' : localpath}
+    
+    def source_obj(self, servername, type, **kwargs):
+        base = {'type' : type,
+                'servername' : servername}
+        for k,v in kwargs.iteritems():
+            base[k] = v
+        return base
 
-    def table_obj(self, appendable, dtype, shape, shardinfo, sources):
+    def array_obj(self, sources):
         return {'type' : 'array',
-                'dtype' : dtype,
-                'shape' : shape,
-                'shardinfo' : shardinfo,
-                'sources' : sources}
-
-    def array_obj(self, appendable, dtype, shape, shardinfo, sources):
-        return {'type' : 'array',
-                'dtype' : dtype,
-                'shape' : shape,
-                'shardinfo' : shardinfo,
                 'sources' : sources}
 
     def safe_insert(self, parentpath, name, obj):
-        newpath = os.path.join(parentpath, name)
-        if self.pathmap.get(newpath) is not None:
-            raise BlazeConfigError, 'item already exists'
-
-        parent = self.pathmap.get(parentpath)
-        if parent is None:
-            parent = self.safe_insert(
-                os.path.dirname(parentpath),
-                os.path.basename(parentpath),
+        with self.client.pipeline() as pipe:
+            pipe.watch(self.pathmap_key)
+            pipe.multi()
+            self._safe_insert(pipe, parentpath, name, obj)
+            pipe.execute()
+        
+    def _safe_insert(self, client, parentpath, name, obj):        
+        newpath = blazepath.join(parentpath, name)
+        if not self.client.hexists(self.pathmap_key, parentpath):
+            parent = self._safe_insert(client, 
+                blazepath.dirname(parentpath),
+                blazepath.basename(parentpath),
                 self.group_obj([]))
-            parent = self.pathmap.get(parentpath)
+        else:
+            parent = hget(self.client, self.pathmap_key, parentpath)
         if name not in parent['children']:
             parent['children'].append(name)
-            self.pathmap[parentpath] = parent
-        self.pathmap[os.path.join(parentpath, name)] = obj
-
+            hset(client, self.pathmap_key, parentpath, parent)
+        hset(client, self.pathmap_key, newpath, obj)
+        return obj
+    
     def list_children(self, path):
-        group = self.pathmap.get(path)
+        group = hget(self.client, self.pathmap_key, path)
         if group is None or group['type'] != 'group':
             raise BlazeConfigError
         else:
-            return [os.path.join(path, x) for x in group['children']]
+            return [blazepath.join(path, x) for x in group['children']]
 
     def create_dataset(self, path, obj):
-        self.safe_insert(os.path.dirname(path), os.path.basename(path), obj)
-        for source in obj['sources']:
-            self.add_reverse_map(path, source)
-
+        with self.client.pipeline() as pipe:
+            pipe.watch(self.pathmap_key)
+            pipe.watch(self.reversemap_key)
+            pipe.multi()
+            self._safe_insert(pipe, blazepath.dirname(path),
+                              blazepath.basename(path), obj)
+            for source in obj['sources']:
+                self._add_reverse_map(pipe, path, source)
+            pipe.execute()
+            
     def add_source(self, path, source):
-        node = self.pathmap.get(path)
-        if source not in node['sources']:
-            node['sources'].append(source)
-            self.add_reverse_map(path, source)
-        self.pathmap[path] = node
-
-    def sourcekey(self, servername, filepath=None, localpath=None):
-        data = [servername]
-        if filepath is not None:
-            data.append(filepath)
-        if localpath is not None:
-            data.append(localpath)
-        return ":".join(data)
-
+        with self.client.pipeline() as pipe:
+            pipe.watch(self.pathmap_key)
+            pipe.watch(self.reversemap_key)                
+            node = hget(pipe, self.pathmap_key, path)
+            if source not in node['sources']:
+                node['sources'].append(source)
+            self._add_reverse_map(pipe, path, source)
+            
+    def sourcekey(self, sourceobj):
+        keys = sourceobj.keys()
+        keys.sort()
+        vals = []
+        for k in keys:
+            vals.append(k)
+            vals.append(sourceobj[k])
+        return ":".join(vals)
+    
+    def parse_sourcekey(self, sourcekey):
+        data = sourcekey.split(":")
+        data = [(data[x], data[x+1]) for x in range(0, len(data), 2)]
+        return dict(data)
+    
     def add_reverse_map(self, path, source):
-        sourcekey = self.sourcekey(source['servername'],
-                                   source['filepath'],
-                                   source['localpath'])
-        node = self.reversemap.get(sourcekey)
-        if node is None:
-            self.reversemap[sourcekey] = [path]
+        with self.client.pipeline() as pipe:
+            pipe.watch(self.reversemap_key)
+            self._add_reverse_map(pipe, path, source)
+            pipe.execute()
+                
+    def _add_reverse_map(self, client, path, source):
+        sourcekey = self.sourcekey(source)
+        if not self.client.hexists(self.reversemap_key, sourcekey):
+            hset(client, self.reversemap_key, sourcekey, [path])
         else:
-            paths = self.reversemap[sourcekey]
+            paths = hget(self.client, self.reversemap_key, sourcekey)
             if path not in paths:
                 paths.append(path)
-            self.reversemap[sourcekey] = paths
-
+            hset(client, self.reversemap_key, sourcekey, paths)
+            
     def get_node(self, path):
-        return self.pathmap.get(path)
-
-    def get_dependencies(self, servername, filepath=None, localpath=None):
-        sourcekey = self.sourcekey(servername, filepath, localpath)
-        searchkeys = [x for x in self.reversemap.keys() if x.startswith(sourcekey)]
-        deps = set()
-        for key in searchkeys:
-            deps.update(self.reversemap[key])
+        return hget(self.client, self.pathmap_key, path)
+    
+    def get_dependencies(self, **kwargs):
+        keys = self.client.hkeys(self.reversemap_key)
+        deps = set()        
+        for key in keys:
+            sourceobj = self.parse_sourcekey(key)
+            if all([(kwargs.get(k) == sourceobj.get(k)) for k in kwargs.keys()]):
+                deps.update(hget(self.client, self.reversemap_key, key))
         return deps
-
-    def remove(self, servername, filepath=None, localpath=None):
-        affected_paths = self.get_dependencies(
-            servername, filepath=filepath, localpath=localpath)
+    
+    def remove(self, **kwargs):
+        with self.client.pipeline() as pipe:
+            pipe.watch(self.pathmap_key)
+            pipe.watch(self.reversemap_key)
+            pipe.multi()
+            self._remove(client, **kwargs)
+            pipe.execute()
+            
+    def _remove(self, client, **kwargs):
+        affected_paths = self.get_dependencies(**kwargs)
         sourcekey = self.sourcekey(servername, filepath, localpath)
         for path in affected_paths:
-            sources = self.get_node(path)['sources']
-            to_remove = [x for x in sources if sourcekey in \
-                         self.sourcekey(x['servername'], x['filepath'], x['localpath'])]
+            sources = hget(client, self.pathmap_key, path)
+            to_remove = []
+            for source in sources:
+                if all([(kwargs.get(k)==sourceobj.get(k)) for k in kwargs.keys()]):
+                    to_remove.append(source)
             for source in to_remove:
-                self.remove_source(path, source)
+                self._remove_source(path, source)
         sourcekey = self.sourcekey(servername, filepath, localpath)
         searchkeys = [x for x in self.reversemap.keys() if x.startswith(sourcekey)]
-
+        
     def remove_source(self, path, source):
-        node = self.pathmap.get(path)
+        with self.client.pipeline() as pipe:
+            pipe.watch(self.pathmap_key)
+            pipe.watch(self.reversemap_key)
+            pipe.multi()
+            self._remove_source(pipe, path, source)
+            pipe.execute()
+            
+    def _remove_source(self, client, path, source):
+        node = hget(self.client, self.pathmap_key, path)
         newsources = [x for x in node['sources'] if x != source]
-        self.remove_reverse_map(path, source)
+        self._remove_reverse_map(client, path, source)
         if len(newsources) > 0:
             node['sources'] = newsources
-            self.pathmap[path] = node
+            hset(client, self.pathmap_key, path, node)
         else:
-            del self.pathmap[path]
+            client.hdel(self.pathmap_key, path)
 
-    def remove_reverse_map(self, path, source):
-        sourcekey = self.sourcekey(source['servername'],
-                                   source['filepath'],
-                                   source['localpath'])
-        node = self.reversemap.get(sourcekey)
-        if node is not None:
-            paths = self.reversemap[sourcekey]
+    def _remove_reverse_map(self, client, path, source):
+        sourcekey = self.sourcekey(source)
+        paths = hget(self.client, path, source)
+        if paths is not None:
             paths = [x for x in paths if paths != path]
             if len(paths) == 0:
-                del self.reversemap[sourcekey]
-
+                client.hdel(self.reversemap_key, sourcekey)
+            else:
+                hset(client, self.reversemap_key, sourcekey, paths)
 
 def generate_config_hdf5(servername, blazeprefix, datapath, config):
     assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
@@ -194,31 +255,25 @@ def generate_config_hdf5(servername, blazeprefix, datapath, config):
         serverpath = blazeprefix
         if node._v_pathname != "/": serverpath += node._v_pathname
         if nodetype == 'table':
-            obj = config.table_obj(False,
-                                   node.dtype,
-                                   node.shape,
-                                   {'shardtype' : 'noshards'},
-                                   [config.source_obj(servername,
-                                                     'hdf5',
-                                                     datapath,
-                                                     None)])
+            obj = config.array_obj([config.source_obj(servername,
+                                                      'hdf5',
+                                                      serverpath=datapath,
+                                                      localpath=node._v_pathname)])
             config.create_dataset(serverpath, obj)
         elif nodetype == 'array':
-            obj = config.array_obj(
-                False, node.dtype, node.shape, {'shardtype' : 'noshards'},
-                [config.source_obj(servername, 'hdf5', datapath, None,
-                                   node._v_pathname)])
+            obj = config.array_obj([config.source_obj(servername,
+                                                      'hdf5',
+                                                      serverpath=datapath,
+                                                      localpath=node._v_pathname)])
             config.create_dataset(serverpath, obj)
 
-def generate_config_numpy(servername, blazeprefix, localpath, filepath, config):
+def generate_config_numpy(servername, blazeprefix, filepath, config):
     assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
-    assert localpath.startswith('/') and not localpath.endswith('/')
     arr = numpy.load(filepath)
     obj = config.array_obj(
-            False, arr.dtype, arr.shape, {'shardtype' : 'noshards'},
-            [config.source_obj(servername, 'numpy', filepath, None, localpath)])
-    serverpath = blazeprefix + localpath
-    config.create_dataset(serverpath, obj)
+            [config.source_obj(servername, 'numpy', serverpath=filepath)])
+    blazeurl = blazeprefix
+    config.create_dataset(blazeurl, obj)
 
 
 def merge_configs(baseconfig, newconfig):
