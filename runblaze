@@ -1,2 +1,2 @@
 #!/bin/bash
-python blaze/server/test_adhoc/run.py
+python blaze/server/scripts/run.py blaze/server/tests

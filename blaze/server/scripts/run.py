@@ -72,13 +72,6 @@ def main():
     args = parser.parse_args()
     print args
     servername = args.server_name
-    def run_node():
-         node = blazenode.BlazeNode(backaddr, servername, config)
-         node.start()
-        
-    def run_broker():
-         b = blazebroker.BlazeBroker(frontaddr, backaddr, config)
-         b.start()
     datapath = os.path.abspath(args.datapath)
     print 'datapath', datapath
     if not args.no_redis:
@@ -92,15 +85,16 @@ def main():
     data = yaml.load(open(os.path.join(datapath, 'blaze.config')).read(),
                           Loader=orderedyaml.OrderedDictYAMLLoader)
     namespace = args.namespace
-    import pdb;pdb.set_trace()
     config = blazeconfig.BlazeConfig(servername, host=args.redis_host,
                                      port=args.redis_port, sourceconfig=data)
     frontaddr = args.front_address
     backaddr = args.back_address
-
-    run_node()
-    run_broker()
-
+    node = blazenode.BlazeNode(backaddr, servername, config)
+    node.start()
+    b = blazebroker.BlazeBroker(frontaddr, backaddr, config)
+    b.start()
+    node.join()
+    
 if __name__ == "__main__":
     main()
     
