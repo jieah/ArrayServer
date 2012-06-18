@@ -127,7 +127,11 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         self.thread_socket.bind(THREAD_ADDRESS)
         self.poller.register(self.thread_socket, zmq.POLLIN)
         while not self.kill:
-            self.run_once()
+            try:
+                self.run_once()
+            except zmq.ZMQError as e:
+                log.exception(e)
+                break
         self.thread_socket.close()
         self.disconnect()
 

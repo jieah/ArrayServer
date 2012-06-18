@@ -49,12 +49,9 @@ class NodeCollection(dict):
 
 class Broker(Thread):
 
-    def __init__(self, frontaddr, backaddr, config=None, protocol_helper=None,
+    def __init__(self, frontaddr, backaddr, config, protocol_helper=None,
                  frontid=None, backid=None, timeout=1000.0):
         self.timeout = timeout
-        if config is None:
-            config = blazeconfig.BlazeConfig(blazeconfig.InMemoryMap(),
-                                             blazeconfig.InMemoryMap())
         if frontid is None: frontid = str(uuid.uuid4())
         self.frontid = frontid
         if backid is None: backid = str(uuid.uuid4())
@@ -84,19 +81,9 @@ class Broker(Thread):
 
     def purge(self):
         purged = self.nodes.purge()
-        for addr in purged:
-            self.metadata.remove(addr)
-
-    def handle_contentreport(self, clientid, msgobj, data):
-        self.metadata.remove(clientid)
-        blazeconfig.merge_configs(self.metadata, data[0])
-        log.info("receivied content report from: '%s' containing %d sources" % (clientid, len(data[0].pathmap.keys())))
 
     def handle_ready(self, address, msg):
         self.handle_heartbeat(address, msg)
-        log.info("requesting content report from: %s", address)
-        self.backend_rpc('get_contentreport', address,
-                         functools.partial(self.handle_contentreport, address))
 
     def handle_heartbeat(self, address, msg):
         if not self.nodes.has_key(address):
@@ -177,10 +164,10 @@ class Broker(Thread):
 
 
 class BlazeBroker(Broker, router.RPCRouter):
-    def __init__(self, frontaddr, backaddr, timeout=1000.0,
-                 config=None, protocol_helper=None):
+    def __init__(self, frontaddr, backaddr, config, timeout=1000.0,
+                 protocol_helper=None):
         super(BlazeBroker, self).__init__(
-            frontaddr, backaddr, config=config, timeout=timeout,
+            frontaddr, backaddr, config, timeout=timeout,
             protocol_helper=protocol_helper)
         log.info("Starting Blaze Broker")
 
@@ -194,11 +181,26 @@ class BlazeBroker(Broker, router.RPCRouter):
 
     def route_get(self, path, data_slice=None, rawmessage=None):
         log.info("route_get")
-        node = self.metadata.get_node(path)
+        node = self.metadata.get_metadata(path)
         if node['type'] != 'group':
-            source = node['sources'][0]
-            rawmessage.insert(0, source['servername'])
-            self.backend.send_multipart(rawmessage)
+            servers = [x['servername'] for x in node['sources']]
+            if self.metadata.servername in servers:
+                #we have this data, route it to one of our workers
+                target = self.nodes.values()[0]   # TODO some sort of fair queuing
+                rawmessage.insert(0, target.address)
+                self.backend.send_multipart(rawmessage)                
+            else:
+                #route it elsewhere
+                #not implemented yet
+                (envelope, clientid, msgid,
+                 requestobj, datastrs) = self.ph.unpack_envelope_blaze(
+                    rawmessage, deserialize_data=False)
+                msgobj, dataobjs = self.ph.pack_rpc(
+                    self.ph.error_obj('cannot route'), [])
+                messages = self.ph.pack_envelope_blaze(
+                    envelope, clientid, msgid, msgobj, dataobjs
+                    )
+                self.frontend.send_multipart(messages)
         else:
             (envelope, clientid, msgid,
              requestobj, datastrs) = self.ph.unpack_envelope_blaze(
@@ -216,7 +218,6 @@ class BlazeBroker(Broker, router.RPCRouter):
         graph = self.ph.deserialize_data(datastrs)[0]
         array_nodes = grapheval.find_nodes_of_type(graph, blaze_array_proxy.BlazeArrayProxy)
         if len(array_nodes) == 0:
-            # There are no blaze sources, simply farm this out to a random node
             node = self.nodes.values[0]   # TODO some sort of fair queuing
             rawmessage.insert(0, node.address)
             log.info('sending bare eval to backend %s' % node)
@@ -224,27 +225,36 @@ class BlazeBroker(Broker, router.RPCRouter):
         else:
             sources = []
             for node in array_nodes:
-                sources += self.metadata.get_node(node.url)['sources']
+                sources += self.metadata.get_metadata(node.url)['sources']
             servers = set([source['servername'] for source in sources])
-            if len(servers) == 1:
-                node = self.nodes[servers.pop()]
-                if self.nodes.has_key(node.address):
-                    rawmessage.insert(0, node.address)
-                    log.info('sending blaze source eval to backend %s' % node)
-                    self.backend.send_multipart(rawmessage)
+            if self.metadata.servername in servers:
+                node = self.nodes.values()[0]
+                rawmessage.insert(0, node.address)
+                log.info('sending blaze source eval to backend %s' % node)
+                self.backend.send_multipart(rawmessage)
 
-    def route_info(self, url, rawmessage=None):
-        log.info("route info")
-        info = self.metadata.get_node(url)
-        (envelope, clientid, msgid,
-            requestobj, datastrs) = self.ph.unpack_envelope_blaze(
-                rawmessage, deserialize_data=False)
-        msgobj, dataobjs = self.ph.pack_rpc(
-            {'type' : 'info'}, [{'shape':info['shape'], 'dtype':info['dtype']}])
-        messages = self.ph.pack_envelope_blaze(
-            envelope, clientid, msgid, msgobj, dataobjs
-        )
-        self.frontend.send_multipart(messages)
+    def route_info(self, path, rawmessage=None):
+        log.info("route_get")
+        node = self.metadata.get_metadata(path)
+        if node['type'] != 'group':
+            servers = [x['servername'] for x in node['sources']]
+            if self.metadata.servername in servers:
+                #we have this data, route it to one of our workers
+                target = self.nodes.values()[0]   # TODO some sort of fair queuing
+                rawmessage.insert(0, target.address)
+                self.backend.send_multipart(rawmessage)                
+            else:
+                #route it elsewhere
+                #not implemented yet
+                (envelope, clientid, msgid,
+                 requestobj, datastrs) = self.ph.unpack_envelope_blaze(
+                    rawmessage, deserialize_data=False)
+                msgobj, dataobjs = self.ph.pack_rpc(
+                    self.ph.error_obj('cannot route'), [])
+                messages = self.ph.pack_envelope_blaze(
+                    envelope, clientid, msgid, msgobj, dataobjs
+                    )
+                self.frontend.send_multipart(messages)
 
     def route_store(self, url, datastrs, rawmessage=None):
         log.info("route store")

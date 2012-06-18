@@ -19,7 +19,9 @@ import blaze.server.rpc as rpc
 import blaze.server.rpc.client as client
 from blaze.server.blazebroker import BlazeBroker
 from blaze.server.blazenode import BlazeNode
-from blaze.server.blazeconfig import BlazeConfig, InMemoryMap, generate_config_hdf5, generate_config_numpy
+from blaze.server.blazeconfig import BlazeConfig, generate_config_hdf5, generate_config_numpy
+import blaze.server.redisutils as redisutils
+import blaze.server.blazeconfig as blazeconfig
 from blaze.array_proxy.blaze_array_proxy import BlazeArrayProxy
 import blaze.array_proxy.npproxy as npp
 
@@ -37,16 +39,19 @@ class RouterTestCase(unittest.TestCase):
         self.hdfpath = os.path.join(testroot, 'gold.hdf5')
         self.numpypath = os.path.join(testroot, 'test.npy')
         servername = 'myserver'
-        self.config = BlazeConfig(InMemoryMap(), InMemoryMap())
+        self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
+        time.sleep(0.1)
+        self.config = blazeconfig.BlazeConfig(servername, port=9000)
         generate_config_hdf5(servername, '/data', self.hdfpath, self.config)
-        generate_config_numpy(servername, '/data', '/test', self.numpypath, self.config)
-        broker = BlazeBroker(frontaddr, backaddr, timeout=100.0)
+        generate_config_numpy(servername, '/data/test', self.numpypath, self.config)
+        broker = BlazeBroker(frontaddr, backaddr, self.config, timeout=100.0)
         broker.start()
         self.broker = broker
-        rpcserver = BlazeNode(backaddr, servername, self.config, interval=100.0)
+        rpcserver = BlazeNode(backaddr, 'testnodeident', self.config,
+                              interval=100.0)
         rpcserver.start()
         self.rpcserver = rpcserver
-        test_utils.wait_until(lambda : len(broker.metadata.pathmap) > 1)
+        test_utils.wait_until(lambda : len(broker.nodes) > 1)
 
     def tearDown(self):
         if hasattr(self, 'rpcserver'):
@@ -63,19 +68,13 @@ class RouterTestCase(unittest.TestCase):
         time.sleep(0.2)
 
     def test_connect(self):
-        node = self.broker.metadata.get_node('/data/20100217/names')
-        assert node['shape'] ==  (3,)
-        assert node['sources'][0]['localpath'] == '/20100217/names'
-        assert '/data/20100217/names' in self.broker.metadata.get_dependencies('myserver')
-
+        assert len(self.broker.nodes) == 1
+        
     def test_reconnect(self):
         self.rpcserver.reconnect()
         time.sleep(1) #let reconnects occur
-        node = self.broker.metadata.get_node('/data/20100217/names')
-        assert node['shape'] ==  (3,)
-        assert node['sources'][0]['localpath'] == '/20100217/names'
-        assert '/data/20100217/names' in self.broker.metadata.get_dependencies('myserver')
-
+        assert len(self.broker.nodes) == 1
+        
     def test_get(self):
         rpcclient = client.BlazeClient(frontaddr)
         rpcclient.connect()
@@ -103,7 +102,6 @@ class RouterTestCase(unittest.TestCase):
         y = rpcclient.blaze_source('/data/20100218/prices')
         z = npp.sin((x-y)**3)
         responseobj, data = rpcclient.rpc('eval', data=[z])
-        assert responseobj['shape'] == [1561, 3]
         assert responseobj['type'] == 'array'
 
         xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]

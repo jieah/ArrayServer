@@ -9,7 +9,7 @@ import blaze.server.rpc as rpc
 import blaze.server.rpc.client as client
 import blaze.server.rpc.server as server
 import blaze.server.blazebroker as blazebroker
-
+import blaze.server.redisutils as redisutils
 import unittest
 import simplejson
 import numpy as np
@@ -33,9 +33,6 @@ class TestRPC(server.RPC):
     def echo(self, body, dummykv=None, data=None):
         return {'body' : body,'dummykv': dummykv}, data
     
-    def get_contentreport(self):
-        return {}, [blazeconfig.BlazeConfig({}, {})]
-    
 class TestRPCServer(server.ZParanoidPirateRPCServer):
     def __init__(self, zmqaddr, identity, interval=1000.0,
                  protocol_helper=None, ctx=None, *args, **kwargs):
@@ -54,7 +51,13 @@ class SerializationTestCase(unittest.TestCase):
         assert (output[1] == b).all()
 
 class RPCTest(unittest.TestCase):
+    def setUp(self):
+        self.servername = 'myserver'
+        self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
+        time.sleep(0.1)
+        self.config = blazeconfig.BlazeConfig(self.servername, port=9000)
     def tearDown(self):
+        del self.redisproc
         if hasattr(self, 'rpcserver'):
             self.rpcserver.kill = True
             test_utils.wait_until(lambda : self.rpcserver.socket.closed)
@@ -69,7 +72,8 @@ class RPCTest(unittest.TestCase):
         time.sleep(0.2)
 
     def test_ppirate_rpc(self):
-        broker = blazebroker.Broker(frontaddr, backaddr, timeout=100.0)
+        broker = blazebroker.Broker(frontaddr, backaddr, self.config,
+                                    timeout=100.0)
         broker.start()
         self.broker = broker
         rpcserver = TestRPCServer(backaddr, 'TEST', interval=100.0)
@@ -87,7 +91,8 @@ class RPCTest(unittest.TestCase):
         assert (data[0] == newdata[0]).all()
 
     def test_ppirate_rpc_arbitrary_data(self):
-        broker = blazebroker.Broker(frontaddr, backaddr, timeout=100.0)
+        broker = blazebroker.Broker(frontaddr, backaddr,
+                                    self.config, timeout=100.0)
         broker.start()
         self.broker = broker
         rpcserver = TestRPCServer(backaddr, 'TEST', interval=100.0)

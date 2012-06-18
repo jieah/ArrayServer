@@ -19,60 +19,66 @@ class BlazeRPC(server.RPC):
     def get(self, path, data_slice=None, data=None):
         #kwarg data, bc of rpc
         log.debug("called get")
-        node = self.metadata.get_node(path)
-        if node['type'] != 'group':
-            return self.get_data(node, data_slice=data_slice)
+        metadata = self.metadata.get_metadata(path)
+        if metadata['type'] != 'group':
+            return self.get_data(metadata, data_slice=data_slice)
 
-    def get_data(self, node, data_slice=None):
-        response = {'type' : node['type']}
-        source = node['sources'][0]
+    def get_data(self, metadata, data_slice=None):
+        response = {'type' : metadata['type']}
+        sources = [x for x in metadata['sources'] \
+                  if x['servername'] == self.metadata.servername]
+        source = sources[0]
         source_type = source['type']
         if source_type == 'hdf5':
-            arr = tables.openFile(source['filepath']).getNode(source['localpath'])
-            response['shape'] = [int(x) for x in arr.shape]
-            if data_slice is None:
-                return response, [arr[:]]
-            else:
-                data_slice = slice(*data_slice)
-                return response, [arr[data_slice]]
+            arr = tables.openFile(source['serverpath']).getNode(source['localpath'])
         elif source_type == 'numpy':
-            arr = numpy.load(source['filepath'])
-            if data_slice is None:
-                return response, [arr]
-            else:
-                data_slice = slice(*data_slice)
-                return response, [arr[data_slice]]
+            arr = numpy.load(source['serverpath'])
+        response['shape'] = [int(x) for x in arr.shape]            
+        if data_slice is None:
+            return response, [arr[:]]
+        else:
+            data_slice = slice(*data_slice)
+            return response, [arr[data_slice]]
 
-
+    def info(self, path):
+        metadata = self.metadata.get_metadata(path)
+        response = {'type' : metadata['type']}
+        arrinfo = {}
+        sources = [x for x in metadata['sources'] \
+                  if x['servername'] == self.metadata.servername]
+        source = sources[0]
+        source_type = source['type']
+        if source_type == 'hdf5':
+            arr = tables.openFile(source['serverpath'])
+            arr = arr.getNode(source['localpath'])
+        elif source_type == 'numpy':
+            arr = numpy.load(source['serverpath'])
+        arrinfo['shape'] = arr.shape
+        arrinfo['dtype'] = arr.dtype
+        return response, [arrinfo]
+    
     def eval(self, data):
         log.info("called eval")
         graph = data[0]
         array_nodes = grapheval.find_nodes_of_type(graph, blaze_array_proxy.BlazeArrayProxy)
         for node in array_nodes:
             # TODO we need to handle multiple physical sources
-            source = self.metadata.get_node(node.url)['sources'][0]
+            source = self.metadata.get_metadata(node.url)['sources'][0]
             source_type = source['type']
             if source_type == 'hdf5':
-                arr = tables.openFile(source['filepath']).getNode(source['localpath'])
+                arr = tables.openFile(source['serverpath']).getNode(source['localpath'])
                 node.set_array(arr[:])
             elif source_type == 'numpy':
-                arr = numpy.load(source['filepath'])
+                arr = numpy.load(source['serverpath'])
                 node.set_array(arr)
             else:
                 return self.ph.pack_rpc(
                     self.ph.error_obj('encountered unknown blaze array type %s' % source_type), []
                 )
-
         value = graph.eval()
-
         response = {'type' : "array"}
         response['shape'] = [int(x) for x in value.shape]
         return response, [value]
-
-    def get_contentreport(self):
-        log.info("blaze node sent content report")
-        return ({}, [self.metadata.create_inmemory_config()])
-
 
 class BlazeNode(server.ZParanoidPirateRPCServer):
     def __init__(self, zmq_addr, identity, config, interval=1000.0,

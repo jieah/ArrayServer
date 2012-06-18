@@ -14,8 +14,6 @@ import posixpath as blazepath
 import blaze.server.redisutils as redisutils
 import redis
 import cPickle as pickle
-DatasetSource = collections.namedtuple('DatasetSource', ['type', 'servername', 'filepath', 'hdf5path', 'shard', 'totalshards', 'dtype', 'shape'])
-GroupSource = collections.namedtuple('GroupSource', ['type', 'servername', 'filepath', 'hdf5path'])
 
 def serialize(obj):
     return pickle.dumps(obj)
@@ -47,10 +45,6 @@ def path_history(path):
     paths.append("/")
     paths.reverse()
     return paths
-
-class InMemoryMap(dict):
-    def sync(self):
-        pass
 
 class BlazeConfigError(Exception):
     pass
@@ -178,7 +172,7 @@ class BlazeConfig(object):
                 paths.append(path)
             hset(client, self.reversemap_key, sourcekey, paths)
             
-    def get_node(self, path):
+    def get_metadata(self, path):
         return hget(self.client, self.pathmap_key, path)
     
     def get_dependencies(self, **kwargs):
@@ -200,7 +194,6 @@ class BlazeConfig(object):
             
     def _remove(self, client, **kwargs):
         affected_paths = self.get_dependencies(**kwargs)
-        sourcekey = self.sourcekey(servername, filepath, localpath)
         for path in affected_paths:
             sources = hget(client, self.pathmap_key, path)
             to_remove = []
@@ -209,9 +202,7 @@ class BlazeConfig(object):
                     to_remove.append(source)
             for source in to_remove:
                 self._remove_source(path, source)
-        sourcekey = self.sourcekey(servername, filepath, localpath)
-        searchkeys = [x for x in self.reversemap.keys() if x.startswith(sourcekey)]
-        
+                
     def remove_source(self, path, source):
         with self.client.pipeline() as pipe:
             pipe.watch(self.pathmap_key)
@@ -275,18 +266,6 @@ def generate_config_numpy(servername, blazeprefix, filepath, config):
     blazeurl = blazeprefix
     config.create_dataset(blazeurl, obj)
 
-
-def merge_configs(baseconfig, newconfig):
-    for k,v in newconfig.pathmap.iteritems():
-        if v['type'] == 'group':
-            if baseconfig.get_node(k) is None:
-                baseconfig.create_group(k)
-        else:
-            baseset = baseconfig.get_node(k)
-            ##we can't handle replicas, or sharding, but if we could,
-            ##this is where that would go.
-            assert baseset is None
-            baseconfig.create_dataset(k, v)
 
 
 

@@ -29,7 +29,7 @@ class ConfigTestCase(unittest.TestCase):
                                    datasetobj)
         assert "/path/here" in self.config.list_children("/path")
         assert "/path/here/myset" in self.config.list_children("/path/here")
-        node = self.config.get_node("/path/here/myset")
+        node = self.config.get_metadata("/path/here/myset")
         sourceobj = self.config.source_obj(
             'testserver', 'hdf5',
             serverpath='/data/bin/data',
@@ -46,7 +46,7 @@ class ConfigTestCase(unittest.TestCase):
 
         blazeconfig.generate_config_hdf5('myserver', '/data',
                                          hdfpath, self.config)
-        node = self.config.get_node('/data/20100217/names')
+        node = self.config.get_metadata('/data/20100217/names')
         assert node['sources'][0]['localpath'] == '/20100217/names'
         assert node['sources'][0]['type'] == 'hdf5'
         assert '/data/20100217/names' in self.config.get_dependencies()
@@ -59,7 +59,7 @@ class ConfigTestCase(unittest.TestCase):
 
         blazeconfig.generate_config_numpy('testserver', '/data/test', path,
                                           self.config)
-        node = self.config.get_node('/data/test')
+        node = self.config.get_metadata('/data/test')
         assert node['sources'][0]['serverpath'] == path
         assert node['sources'][0]['type'] == 'numpy'
         assert '/data/test' in self.config.get_dependencies()
@@ -76,7 +76,7 @@ class ConfigTestCase(unittest.TestCase):
                                    datasetobj)
         self.config.add_source("/path/here/myset", sourceobj)
         self.config.remove_source("/path/here/myset", sourceobj)
-        assert self.config.get_node("/path/here/myset") is None
+        assert self.config.get_metadata("/path/here/myset") is None
 
 
 
