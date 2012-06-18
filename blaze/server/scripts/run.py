@@ -9,13 +9,13 @@ import zmq
 
 import blaze.server.redisutils as redisutils
 import blaze.server.blazeconfig as blazeconfig
+import blaze.server.blazeconfig.orderedyaml as orderedyaml
 import blaze.server.blazenode as blazenode
 import blaze.server.blazebroker as blazebroker
 
-import rpd.redis_hash_dict as redis_hash_dict
-import rpd.redis_config as redis_config
 import redis
 import sys
+import yaml
 import os
 import logging
 import posixpath as blazepath
@@ -28,7 +28,9 @@ def init_dir(datadir):
     # as well as a blaze.config
     config_path = os.path.join(datadir, 'blaze.config')
     if not os.path.exists(config_path):
-        base_config = os.path.join(os.path.dirname(__file__), 'blaze.config')
+        base_config = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                                   'default_config.yaml')
+        import pdb;pdb.set_trace()
         with open(base_config) as f:
             config = f.read()
         config = config % {'datapath' : datadir}
@@ -36,30 +38,7 @@ def init_dir(datadir):
             f.write(config)
 
 import os.path
-def path_split(fpath, pathm=os.path):
-    paths = []
-    currpath = fpath
-    while currpath != pathm.dirname(currpath):
-        currpath, head = pathm.split(currpath)
-        paths.append(head)
-        print paths
-    return paths
     
-def load_dir(datadir, servername, config,
-             ignore=['redis.db', 'redis.log', 'blaze.config']):
-    ignore = set([os.path.join(datadir, x) for x in ignore])
-    base_split_names = path_split(datadir)
-    base_split_names = [x for x in base_split_names if x != '']
-    for dirpath, dirnames, filenames in os.walk(datadir):
-        for f in filenames:
-            fpath = os.path.join(dirpath, f)
-            if fpath in ignore:
-                continue
-            file_split_names = path_split(fpath)
-            file_split_names = [len(base_split_names):]
-            blaze_url = blazepath.join('/', *file_split_names)
-            blazeconfig.generate_config_hdf5(servername, blaze_url,
-                                             datapath, config)
             
 import argparse
 def main():
@@ -82,7 +61,7 @@ def main():
     )
     parser.add_argument(
         '-n', '--namespace',
-        help='namespace of node, nodes can see all nodes within this namespace'
+        help='namespace of node, nodes can see all nodes within this namespace',
         default='main'
     )
     parser.add_argument('-nr', '--no-redis', action='store_true')
@@ -94,16 +73,14 @@ def main():
     print args
     servername = args.server_name
     def run_node():
-         log.debug("starting node")
-         config = blazeconfig.BlazeConfig(pathmap, reversemap)
          node = blazenode.BlazeNode(backaddr, servername, config)
          node.start()
         
     def run_broker():
-         b = blazebroker.BlazeBroker(frontaddr, backaddr)
+         b = blazebroker.BlazeBroker(frontaddr, backaddr, config)
          b.start()
-         
-    datapath = args.datapath
+    datapath = os.path.abspath(args.datapath)
+    print 'datapath', datapath
     if not args.no_redis:
         assert args.redis_host == 'localhost', 'cannot start redis on another host'
         proc = redisutils.RedisProcess(
@@ -111,13 +88,13 @@ def main():
             datapath,
             data_file=os.path.join(datapath, 'redis.db'),
             log_file=os.path.join(datapath, 'redis.log'))
-    redis_config.CLIENT = redis.Redis(host=args.redis_host, port=args.redis_port)
+    init_dir(datapath)
+    data = yaml.load(open(os.path.join(datapath, 'blaze.config')).read(),
+                          Loader=orderedyaml.OrderedDictYAMLLoader)
     namespace = args.namespace
-    pathmap = redisutils.redis_pathmap(namespace)
-    reversemap = redisutils.redis_pathmap(namespace)    
-    config = blazeconfig.BlazeConfig(pathmap, reversemap)
-    load_dir(datapath, servername, config)
-    print args
+    import pdb;pdb.set_trace()
+    config = blazeconfig.BlazeConfig(servername, host=args.redis_host,
+                                     port=args.redis_port, sourceconfig=data)
     frontaddr = args.front_address
     backaddr = args.back_address
 

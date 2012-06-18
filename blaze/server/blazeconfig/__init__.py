@@ -71,12 +71,9 @@ class BlazeConfig(object):
         """
         self.servername = servername
         self.sourceconfig = sourceconfig
-        if sourceconfig is not None:
-            self.load_sources(sourceconfig)
         self.client = redis.Redis(host=host, port=port)
         self.pathmap_key = 'pathmap'
         self.reversemap_key = 'reversemap:' + self.servername
-        
         if not self.client.hexists(self.pathmap_key, '/'):
             with self.client.pipeline() as pipe:
                 pipe.watch(self.pathmap_key)
@@ -84,6 +81,8 @@ class BlazeConfig(object):
                 if not self.client.hexists(self.pathmap_key, '/'):
                     hset(pipe, self.pathmap_key, '/', self.group_obj([]))
                 pipe.execute()
+        if sourceconfig is not None:
+            self.load_sources(sourceconfig)
                 
     def load_sources(self, sources):
         for prefix, source in sources.iteritems():
