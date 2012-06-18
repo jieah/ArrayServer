@@ -13,7 +13,7 @@ class ConfigTestCase(unittest.TestCase):
         self.config = blazeconfig.BlazeConfig('testserver', port=9000)
         
     def tearDown(self):
-        del self.redisproc
+        self.redisproc.close()
         
     def test_create_group(self):
         self.config.create_group("/path/here/again")
@@ -78,6 +78,18 @@ class ConfigTestCase(unittest.TestCase):
         self.config.remove_source("/path/here/myset", sourceobj)
         assert self.config.get_metadata("/path/here/myset") is None
 
-
+    def test_from_sources(self):
+        testroot = os.path.abspath(os.path.dirname(__file__))
+        hdfpath = os.path.join(testroot, 'gold.hdf5')
+        sources = {'data' : {'type' : 'native',
+                             'paths' : {'test' : hdfpath}}}
+        self.config.load_sources(sources)
+        node = self.config.get_metadata('/data/test/20100217/names')
+        assert node['sources'][0]['localpath'] == '/20100217/names'
+        assert node['sources'][0]['type'] == 'hdf5'
+        assert '/data/test/20100217/names' in self.config.get_dependencies()
+        assert '/data/test/20100217/names' in self.config.get_dependencies(
+            localpath='/20100217/names')
+        
 
 

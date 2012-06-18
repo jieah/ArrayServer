@@ -14,6 +14,7 @@ import posixpath as blazepath
 import blaze.server.redisutils as redisutils
 import redis
 import cPickle as pickle
+import glob
 
 def serialize(obj):
     return pickle.dumps(obj)
@@ -23,6 +24,7 @@ def deserialize(strdata):
         return None
     else:
         return pickle.loads(strdata)
+    
     
 def hget(client, key, field):
     return deserialize(client.hget(key, field))
@@ -34,6 +36,14 @@ def hset(client, key, field, val):
 #dict with a sync function that does nothing,
 #this way we can use the same code for
 #the in memory, or on disk maps
+def path_split(fpath, pathm=os.path):
+    paths = []
+    currpath = fpath
+    while currpath != pathm.dirname(currpath):
+        currpath, head = pathm.split(currpath)
+        paths.append(head)
+    paths.reverse()
+    return paths
 
 def path_history(path):
     paths = []
@@ -61,6 +71,8 @@ class BlazeConfig(object):
         """
         self.servername = servername
         self.sourceconfig = sourceconfig
+        if sourceconfig is not None:
+            self.load_sources(sourceconfig)
         self.client = redis.Redis(host=host, port=port)
         self.pathmap_key = 'pathmap'
         self.reversemap_key = 'reversemap:' + self.servername
@@ -73,6 +85,17 @@ class BlazeConfig(object):
                     hset(pipe, self.pathmap_key, '/', self.group_obj([]))
                 pipe.execute()
                 
+    def load_sources(self, sources):
+        for prefix, source in sources.iteritems():
+            if source['type'] == 'native':
+                for filegroup, path in source['paths'].iteritems():
+                    url = blazepath.join('/', prefix, filegroup)
+                    if os.path.isdir(path):
+                        load_dir(path, url, self.servername, self)
+                    else:
+                        generate_config_hdf5(
+                            self.servername, url, path, self)
+                    
     def create_group(self, path):
         self.safe_insert(blazepath.dirname(path),
                          blazepath.basename(path),
@@ -233,7 +256,11 @@ class BlazeConfig(object):
 
 def generate_config_hdf5(servername, blazeprefix, datapath, config):
     assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
-    f = tables.openFile(datapath)
+    try:
+        f = tables.openFile(datapath)
+    except Exception as e:
+        #log.exception(e)
+        return
     for node in f.walkNodes("/"):
         if isinstance(node, tables.group.Group):
             nodetype = 'group'
@@ -266,6 +293,20 @@ def generate_config_numpy(servername, blazeprefix, filepath, config):
     blazeurl = blazeprefix
     config.create_dataset(blazeurl, obj)
 
+def load_dir(datadir, blazeprefix, servername, config,
+             ignore=['redis.db', 'redis.log', 'blaze.config']):
+    ignore = set([os.path.join(datadir, x) for x in ignore])
+    base_split_names = path_split(datadir)
+    base_split_names = [x for x in base_split_names if x != '']
+    for dirpath, dirnames, filenames in os.walk(datadir):
+        for f in filenames:
+            fpath = os.path.join(dirpath, f)
+            if fpath in ignore:
+                continue
+            file_split_names = path_split(fpath)
+            file_split_names = file_split_names[len(base_split_names):]
+            blaze_url = blazepath.join(blazeprefix, *file_split_names)
+            generate_config_hdf5(servername, blaze_url, fpath, config)
 
 
 

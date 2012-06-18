@@ -53,11 +53,20 @@ class SerializationTestCase(unittest.TestCase):
 class RPCTest(unittest.TestCase):
     def setUp(self):
         self.servername = 'myserver'
+        try:
+            os.remove('/tmp/redis.log')
+        except:
+            pass
+        try:
+            os.remove('/tmp/redis.db')            
+        except:
+            pass
         self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
         time.sleep(0.1)
         self.config = blazeconfig.BlazeConfig(self.servername, port=9000)
+        
     def tearDown(self):
-        del self.redisproc
+        self.redisproc.close()
         if hasattr(self, 'rpcserver'):
             self.rpcserver.kill = True
             test_utils.wait_until(lambda : self.rpcserver.socket.closed)

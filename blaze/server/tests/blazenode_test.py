@@ -54,6 +54,7 @@ class RouterTestCase(unittest.TestCase):
         test_utils.wait_until(lambda : len(broker.nodes) > 1)
 
     def tearDown(self):
+        self.redisproc.close()
         if hasattr(self, 'rpcserver'):
             self.rpcserver.kill = True
             test_utils.wait_until(lambda : self.rpcserver.socket.closed)

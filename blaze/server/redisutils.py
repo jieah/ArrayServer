@@ -12,7 +12,6 @@ def start_redis(port, data_dir, data_file='redis.db', log_file='redis.log', save
                              'dbdir' : data_dir,
                              'dbfile' : data_file,
                              'save' : savestr}
-    
     proc = subprocess.Popen(['redis-server', '-'],
                             stdout=log_file,
                             stdin=subprocess.PIPE,
@@ -29,7 +28,14 @@ class RedisProcess(object):
                                 data_file=data_file,
                                 log_file=log_file,
                                 save=save)
-    def __del__(self):
+        self.closed = False
+        
+    def close(self):
         self.proc.kill()
         self.proc.communicate()
-        
+        print 'REDIS TERMINATE'
+        self.closed = True
+
+    def __del__(self):
+        if not self.closed:
+            self.close()
