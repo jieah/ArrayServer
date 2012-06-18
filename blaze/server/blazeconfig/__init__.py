@@ -25,7 +25,6 @@ def deserialize(strdata):
     else:
         return pickle.loads(strdata)
     
-    
 def hget(client, key, field):
     return deserialize(client.hget(key, field))
 
@@ -255,11 +254,10 @@ class BlazeConfig(object):
 
 def generate_config_hdf5(servername, blazeprefix, datapath, config):
     assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
-    try:
+    if tables.isHDF5File(datapath):
         f = tables.openFile(datapath)
-    except Exception as e:
-        #log.exception(e)
-        return
+    else:
+        return None
     for node in f.walkNodes("/"):
         if isinstance(node, tables.group.Group):
             nodetype = 'group'
