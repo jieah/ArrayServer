@@ -4,17 +4,19 @@ from blaze.array_proxy import array_proxy
 from blaze.array_proxy import blaze_array_proxy
 from blaze.array_proxy import grapheval
 from threading import Thread
+import constants
 import time
 import zmq
 import logging
 log = logging.getLogger(__name__)
 
-HEARTBEAT_LIVENESS = 3 # 3..5 is reasonable
-HEARTBEAT_INTERVAL = 1.0 # Seconds
+HEARTBEAT_LIVENESS = constants.HEARTBEAT_LIVENESS
+HEARTBEAT_INTERVAL = constants.HEARTBEAT_INTERVAL
 
 # Heartbeat Protocol constants
-PPP_READY = "\x01" # Signals worker is ready
-PPP_HEARTBEAT = "\x02" # Signals worker heartbeat
+PPP_READY = constants.PPP_READY
+PPP_HEARTBEAT = constants.PPP_HEARTBEAT
+
 import rpc.protocol as protocol
 import rpc.router as router
 import blazeconfig
