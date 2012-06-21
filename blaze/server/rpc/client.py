@@ -94,7 +94,7 @@ class ZDealerRPCClient(common.HasZMQSocket, BaseRPCClient):
                  responsemessages) = self.ph.unpack_envelope(
                     responsemessages)
                 (clientid,
-                 msgid,
+                 reqid,
                  responseobj,
                  responsedatas) = self.ph.unpack_blaze(responsemessages)
                 if responseobj.get('msgtype') == 'rpcresponse':

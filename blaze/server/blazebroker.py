@@ -100,10 +100,10 @@ class Broker(Thread):
                       'args' : args,
                       'kwargs' : kwargs}
         reqid = str(uuid.uuid4())
-        multipart_msg = self.ph.pack_blaze(self.backid, reqid,
-                                           requestobj, dataobj)
         self.callbacks[reqid] = callback
-        multipart_msg = self.ph.pack_envelope([targetident], multipart_msg)
+        multipart_msg = self.ph.pack_envelope_blaze(
+            envelope=[targetident], clientid=self.backid,
+            reqid=reqid, msgobj=requestobj, dataobjs=dataobj)
         self.backend.send_multipart(multipart_msg)
 
     def handle_backend(self, frames):
@@ -113,12 +113,11 @@ class Broker(Thread):
         elif len(msg) == 1 and msg[0] == PPP_READY:
             self.handle_ready(address, msg)
         else:
-            envelope, payload = self.ph.unpack_envelope(msg)
-            (clientid, msgid, msgobj, datastrs) \
-                = self.ph.unpack_blaze(payload, deserialize_data=False)
-            if clientid == self.backid and msgobj['msgtype'] == 'rpcresponse':
-                callback = self.callbacks.pop(msgid)
-                callback(msgobj, self.ph.deserialize_data(datastrs))
+            unpacked = self.ph.unpack_envelope_blaze(msg, deserialize_data=False)
+            if unpacked['clientid'] == self.backid and \
+                   unpacked['msgobj']['msgtype'] == 'rpcresponse':
+                callback = self.callbacks.pop(unpacked['reqid'])
+                callback(msgobj, self.ph.deserialize_data(unpacked['datastrs']))
             else:
                 # for now just forward backend response directly back to client
                 self.frontend.send_multipart(msg)
@@ -128,7 +127,7 @@ class Broker(Thread):
         frames.insert(0, "TEST")
         log.debug('frontend forwarding %s', frames)
         self.backend.send_multipart(frames)
-
+        
     def send_heartbeat(self):
         if time.time() > self.heartbeat_at:
             for node in self.nodes:
@@ -170,58 +169,48 @@ class BlazeBroker(Broker, router.RPCRouter):
             frontaddr, backaddr, config, timeout=timeout,
             protocol_helper=protocol_helper)
         log.info("Starting Blaze Broker")
-
-
+        
     def handle_frontend(self, frames):
-        envelope, payload = self.ph.unpack_envelope(frames)
-        (clientid, msgid, msgobj, datastrs) \
-            = self.ph.unpack_blaze(payload, deserialize_data=False)
-        if msgobj['msgtype'] == 'rpcrequest':
-            self.route(msgobj, datastrs, frames)
+        unpacked = self.ph.unpack_envelope_blaze(frames, deserialize_data=False)
+        if unpacked['msgobj']['msgtype'] == 'rpcrequest':
+            self.route(unpacked)
+        
+    def cannot_route(self, unpacked):
+        del unpacked['datastrs']
+        unpacked['msgobj'], _ = self.ph.pack_rpc(self.ph.error_obj('cannot route')
+                                                 , [])
+        messages = self.ph.pack_envelope_blaze(**unpacked)
+        self.frontend.send_multipart(messages)
 
-    def route_get(self, path, data_slice=None, rawmessage=None):
+    def route_get(self, path, data_slice=None, unpacked=None):
         log.info("route_get")
         node = self.metadata.get_metadata(path)
         if node['type'] != 'group':
             servers = [x['servername'] for x in node['sources']]
             if self.metadata.servername in servers:
                 #we have this data, route it to one of our workers
-                target = self.nodes.values()[0]   # TODO some sort of fair queuing
-                rawmessage.insert(0, target.address)
-                self.backend.send_multipart(rawmessage)                
+                node = self.nodes.values()[0]   # TODO some sort of fair queuing
+                log.info('sending blaze source eval to backend %s' % node)
+                self.send_to_address(unpacked, node.address)
             else:
-                #route it elsewhere
-                #not implemented yet
-                (envelope, clientid, msgid,
-                 requestobj, datastrs) = self.ph.unpack_envelope_blaze(
-                    rawmessage, deserialize_data=False)
-                msgobj, dataobjs = self.ph.pack_rpc(
-                    self.ph.error_obj('cannot route'), [])
-                messages = self.ph.pack_envelope_blaze(
-                    envelope, clientid, msgid, msgobj, dataobjs
-                    )
-                self.frontend.send_multipart(messages)
+                self.cannot_route(unpacked)
         else:
-            (envelope, clientid, msgid,
-             requestobj, datastrs) = self.ph.unpack_envelope_blaze(
-                rawmessage, deserialize_data=False)
-            msgobj, dataobjs = self.ph.pack_rpc(
+            unpacked['msgobj'], unpacked['dataobjs'] = self.ph.pack_rpc(
                 {'type' : 'group',
                  'children' : node['children']}, [])
-            messages = self.ph.pack_envelope_blaze(
-                envelope, clientid, msgid, msgobj, dataobjs
-                )
+            messages = self.ph.pack_envelope_blaze(**unpacked)
             self.frontend.send_multipart(messages)
 
-    def route_eval(self, datastrs, rawmessage=None):
+    def route_eval(self, datastrs, unpacked=None):
         log.info("route_eval")
         graph = self.ph.deserialize_data(datastrs)[0]
-        array_nodes = grapheval.find_nodes_of_type(graph, blaze_array_proxy.BlazeArrayProxy)
+        array_nodes = grapheval.find_nodes_of_type(
+            graph,
+            blaze_array_proxy.BlazeArrayProxy)
         if len(array_nodes) == 0:
             node = self.nodes.values[0]   # TODO some sort of fair queuing
-            rawmessage.insert(0, node.address)
             log.info('sending bare eval to backend %s' % node)
-            self.backend.send_multipart(rawmessage)
+            self.send_to_address(unpacked, node.address)            
         else:
             sources = []
             for node in array_nodes:
@@ -229,36 +218,29 @@ class BlazeBroker(Broker, router.RPCRouter):
             servers = set([source['servername'] for source in sources])
             if self.metadata.servername in servers:
                 node = self.nodes.values()[0]
-                rawmessage.insert(0, node.address)
                 log.info('sending blaze source eval to backend %s' % node)
-                self.backend.send_multipart(rawmessage)
-
-    def route_info(self, path, rawmessage=None):
-        log.info("route_get")
+                self.send_to_address(unpacked, node.address)
+                
+    def route_info(self, path, unpacked=None):
+        log.info("route_info")
         node = self.metadata.get_metadata(path)
         if node['type'] != 'group':
             servers = [x['servername'] for x in node['sources']]
             if self.metadata.servername in servers:
                 #we have this data, route it to one of our workers
                 target = self.nodes.values()[0]   # TODO some sort of fair queuing
-                rawmessage.insert(0, target.address)
-                self.backend.send_multipart(rawmessage)                
+                self.send_to_address(unpacked, target.address)
             else:
-                #route it elsewhere
-                #not implemented yet
-                (envelope, clientid, msgid,
-                 requestobj, datastrs) = self.ph.unpack_envelope_blaze(
-                    rawmessage, deserialize_data=False)
-                msgobj, dataobjs = self.ph.pack_rpc(
-                    self.ph.error_obj('cannot route'), [])
-                messages = self.ph.pack_envelope_blaze(
-                    envelope, clientid, msgid, msgobj, dataobjs
-                    )
-                self.frontend.send_multipart(messages)
+                self.cannot_route(unpacked)
 
     def route_store(self, url, datastrs, rawmessage=None):
         log.info("route store")
-
+        
+    def send_to_address(self, unpacked, ident):
+        unpacked['envelope'].insert(0, ident)
+        msg = self.ph.pack_envelope_blaze(**unpacked)
+        self.backend.send_multipart(msg)                
+        
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

@@ -19,7 +19,7 @@ we have 3 protocol levels here
 pack those up as well.
 
 2.  blaze protocol, blaze messages are the payloads of zeromq messages,
-and are packaged into clientid, msgid, msgobj (json), dataobjects -
+and are packaged into clientid, reqid, msgobj (json), dataobjects -
 list data which can be serialized and deserialized
 
 3.  rpc protocol, a layer around the msgobject and a data object
@@ -144,7 +144,10 @@ class ProtocolHelper(object):
 
     def pack_blaze(self, client_id, message_id, msgobj, dataobjs,
                    serialize_data=True):
-        msgstr = self.serialize_msg(msgobj)
+        try:
+            msgstr = self.serialize_msg(msgobj)
+        except:
+            import pdb;pdb.set_trace()
         if serialize_data:
             datastrs = self.serialize_data(dataobjs)
         else:
@@ -169,20 +172,32 @@ class ProtocolHelper(object):
     def pack_envelope(self, envelope, payload):
         return envelope + [''] + payload
 
-    def pack_envelope_blaze(self, envelope, clientid, msgid,
-                            msgobj, dataobjs,
-                            serialize_data=True):
-        msg = self.pack_blaze(clientid, msgid, msgobj,
-                              dataobjs, serialize_data=serialize_data)
+    def pack_envelope_blaze(self, envelope=None, clientid=None, reqid=None,
+                            msgobj=None, dataobjs=None, datastrs=None):
+        if envelope is None : enevelope = []
+        if msgobj is None : msgobj = {}
+        if dataobjs is None:
+            if datastrs is None: datastrs = []
+            msg = self.pack_blaze(clientid, reqid, msgobj,
+                                  datastrs, serialize_data=False)
+        else:
+            msg = self.pack_blaze(clientid, reqid, msgobj,
+                                  dataobjs, serialize_data=True)
         msg = self.pack_envelope(envelope, msg)
         return msg
 
     def unpack_envelope_blaze(self, messages, deserialize_data=True):
         envelope, messages = self.unpack_envelope(messages)
         (clientid,
-         msgid,
+         reqid,
          msgobj,
-         dataobjs) = self.unpack_blaze(messages)
-        return (envelope, clientid, msgid, msgobj, dataobjs)
+         data) = self.unpack_blaze(messages, deserialize_data)
+        if deserialize_data:
+            unpackedmsg = dict(envelope=envelope, clientid=clientid, reqid=reqid,
+                               msgobj=msgobj, dataobjs=data)
+        else:
+            unpackedmsg = dict(envelope=envelope, clientid=clientid, reqid=reqid,
+                               msgobj=msgobj, datastrs=data)
+        return unpackedmsg
 
 

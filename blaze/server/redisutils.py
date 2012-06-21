@@ -33,7 +33,6 @@ class RedisProcess(object):
     def close(self):
         self.proc.kill()
         self.proc.communicate()
-        print 'REDIS TERMINATE'
         self.closed = True
 
     def __del__(self):

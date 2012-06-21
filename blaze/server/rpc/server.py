@@ -18,13 +18,13 @@ THREAD_ADDRESS = 'inproc://worker'
 class ZMQWorker(threading.Thread):
 
     def __init__(self, rpc, ctx, ph,
-                 clientid, msgid, msgobj, datastrs,
+                 clientid, reqid, msgobj, datastrs,
                  *args, **kwargs):
         self.rpc = rpc
         self.ctx = ctx
         self.ph = ph
         self.clientid = clientid
-        self.msgid = msgid
+        self.reqid = reqid
         self.msgobj = msgobj
         self.datastrs = datastrs
         super(ZMQWorker, self).__init__(*args, **kwargs)
@@ -34,7 +34,7 @@ class ZMQWorker(threading.Thread):
         socket.connect(THREAD_ADDRESS)
         dataobjs = self.ph.deserialize_data(self.datastrs)
         responseobj, dataobjs = self.rpc.get_rpc_response(self.msgobj, dataobjs)
-        messages = self.ph.pack_blaze(self.clientid, self.msgid,
+        messages = self.ph.pack_blaze(self.clientid, self.reqid,
                                          responseobj, dataobjs)
         socket.send_multipart(messages)
         #log.debug("thread SENDING %s", messages)
@@ -147,19 +147,24 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         except zmq.ZMQError as e:
             log.debug('HEARTBEAT FAILED')
 
-    def handle_message(self, envelope, client, msgid, msgobj, datastrs):
-        if msgobj['msgtype'] == 'rpcrequest':
+    def handle_message(self, unpacked):
+        if unpacked['msgobj']['msgtype'] == 'rpcrequest':
             log.info("handle_message")
-            self.handle_rpc(envelope, client, msgid, msgobj, datastrs)
+            self.handle_rpc(unpacked)
 
-    def handle_rpc(self, envelope, client, msgid, msgobj, datastrs):
-        worker = ZMQWorker(self.rpc, self.ctx, self.ph, client,
-                           msgid, msgobj, datastrs)
-        self.workers[msgid] = worker
+    def handle_rpc(self, unpacked):
+        worker = ZMQWorker(self.rpc, self.ctx, self.ph,
+                           unpacked['clientid'],
+                           unpacked['reqid'], unpacked['msgobj'],
+                           unpacked['datastrs'])
+        self.workers[unpacked['reqid']] = worker
         worker.start()
-        statusobj = self.ph.working_obj(msgid)
-        messages = self.ph.pack_blaze(client, msgid, statusobj, [])
-        messages = self.ph.pack_envelope(envelope, messages)
+        statusobj = self.ph.working_obj(unpacked['reqid'])
+        messages = self.ph.pack_envelope_blaze(
+            envelope=unpacked['envelope'],
+            clientid=unpacked['clientid'],
+            reqid=unpacked['reqid'],
+            msgobj=statusobj)
         self.socket.send_multipart(messages)
 
     def run_once(self):
@@ -173,17 +178,19 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
             else:
                 #messages from the outside world come here.
                 #this is the part of the loop we must protect
+                unpacked = {}
                 try:
-                    envelope, payload = self.ph.unpack_envelope(messages)
-                    (client, msgid, msgobj, datastrs) = self.ph.unpack_blaze(payload, False)
-                    self.envelopes[msgid] = envelope
-                    self.handle_message(envelope, client, msgid, msgobj, datastrs)
+                    unpacked = self.ph.unpack_envelope_blaze(
+                        messages,
+                        deserialize_data=False)
+                    self.envelopes[unpacked['reqid']] = unpacked['envelope']
+                    self.handle_message(unpacked)
                 except Exception as e:
                     log.exception(e)
-                    if msgid in self.envelopes[msgid] : self.envelopes.pop(msgid)
-
+                    reqid = unpacked.get('reqid', None)
+                    if reqid in self.envelopes:
+                        self.envelopes.pop(reqid)
             self.last_heartbeat_recvd = time.time()
-
         else:
             if time.time() > self.last_heartbeat_recvd + 2*constants.HEARTBEAT_INTERVAL:
                 log.info('Heartbeat failure, attempting to reconnect in %0.2f sec...', self.interval/1000)
@@ -193,11 +200,11 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         if self.thread_socket in socks:
             messages = self.thread_socket.recv_multipart()
             log.debug("node sending from worker")
-            msgid = messages[1]
-            response = self.ph.pack_envelope(self.envelopes[msgid], messages)
+            reqid = messages[1]
+            response = self.ph.pack_envelope(self.envelopes[reqid], messages)
             self.socket.send_multipart(response)
-            del self.envelopes[msgid]
-            del self.workers[msgid]
+            del self.envelopes[reqid]
+            del self.workers[reqid]
 
         if time.time() > self.last_heartbeat + constants.HEARTBEAT_INTERVAL:
             self.handle_heartbeat()
