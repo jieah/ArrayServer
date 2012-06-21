@@ -179,8 +179,8 @@ class BlazeBroker(Broker, router.RPCRouter):
         
     def cannot_route(self, unpacked):
         del unpacked['datastrs']
-        unpacked['msgobj'], _ = self.ph.pack_rpc(self.ph.error_obj('cannot route')
-                                                 , [])
+        unpacked['msgobj'] = self.ph.pack_rpc(self.ph.error_obj('cannot route'))
+
         messages = self.ph.pack_envelope_blaze(**unpacked)
         self.frontend.send_multipart(messages)
 
@@ -197,9 +197,8 @@ class BlazeBroker(Broker, router.RPCRouter):
             else:
                 self.cannot_route(unpacked)
         else:
-            unpacked['msgobj'], unpacked['dataobjs'] = self.ph.pack_rpc(
-                {'type' : 'group',
-                 'children' : node['children']}, [])
+            unpacked['msgobj'] = self.ph.pack_rpc({'type' : 'group',
+                                                   'children' : node['children']})
             messages = self.ph.pack_envelope_blaze(**unpacked)
             self.frontend.send_multipart(messages)
 

@@ -62,7 +62,7 @@ class BaseRPCClient(object):
                       'args' : args,
                       'kwargs' : kwargs}
         responseobj, dataobj = self.reqrep(requestobj, dataobj)
-        return self.ph.unpack_rpc(responseobj, dataobj)
+        return self.ph.unpack_rpc(responseobj), dataobj
 
 class ZDealerRPCClient(common.HasZMQSocket, BaseRPCClient):
     """rpc client using a REQ socket.

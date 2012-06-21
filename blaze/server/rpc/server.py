@@ -80,23 +80,22 @@ class RPC(object):
         funcname = msgobj['func']
         args = msgobj.get('args', [])
         kwargs = msgobj.get('kwargs', {})
-
         auth = False
         if self.authorized_functions is not None \
            and funcname not in self.authorized_functions:
-            return self.ph.pack_rpc(
-                self.ph.error_obj('unauthorized access'), [])
+            resp = self.ph.pack_rpc(self.ph.error_obj('unauthorized access'))
+            return resp, []
 
         if hasattr(self, 'can_' + funcname):
             auth = self.can_funcname(*args, **kwargs)
             if not auth:
-                return self.ph.pack_rpc(
-                    self.ph.error_obj('unauthorized access'), [])
+                resp = self.ph.pack_rpc(self.ph.error_obj('unauthorized access'))
+                return resp, []
         func = getattr(self, funcname)
         if len(dataobj) > 0:
             kwargs['data'] = dataobj
         responseobj, dataobj = func(*args, **kwargs)
-        return self.ph.pack_rpc(responseobj, dataobj)
+        return self.ph.pack_rpc(responseobj), dataobj
 
 
 

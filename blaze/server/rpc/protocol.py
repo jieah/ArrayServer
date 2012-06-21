@@ -117,19 +117,19 @@ class ProtocolHelper(object):
             'status' : 'working',
             'request_id' : request_id}
 
-    def unpack_rpc(self, responseobj, dataobj):
+    def unpack_rpc(self, responseobj):
         """see package_rpc_response from BaseRPCServer
         """
-        return responseobj['rpcresponse'], dataobj
+        return responseobj['rpcresponse']
 
-    def pack_rpc(self, responseobj, dataobj):
+    def pack_rpc(self, responseobj):
         """our rpc functions return arbitrary json objects,
         and a list of numpy arrays.  this packages them up in the protocol.
         right now all we do is wrap the arbitrary responesobj in
         {'rpcresponse' : responseobj}, so we know where it came from
         """
         return {'msgtype' : 'rpcresponse',
-                'rpcresponse' : responseobj}, dataobj
+                'rpcresponse' : responseobj}
 
     def unpack_blaze(self, messages, deserialize_data=True):
         clientid = messages[0]

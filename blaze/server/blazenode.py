@@ -60,21 +60,24 @@ class BlazeRPC(server.RPC):
     def eval(self, data):
         log.info("called eval")
         graph = data[0]
-        array_nodes = grapheval.find_nodes_of_type(graph, blaze_array_proxy.BlazeArrayProxy)
+        array_nodes = grapheval.find_nodes_of_type(
+            graph, blaze_array_proxy.BlazeArrayProxy)
         for node in array_nodes:
             # TODO we need to handle multiple physical sources
             source = self.metadata.get_metadata(node.url)['sources'][0]
             source_type = source['type']
             if source_type == 'hdf5':
-                arr = tables.openFile(source['serverpath']).getNode(source['localpath'])
+                arr = tables.openFile(source['serverpath'])
+                arr = arr.getNode(source['localpath'])
                 node.set_array(arr[:])
             elif source_type == 'numpy':
                 arr = numpy.load(source['serverpath'])
                 node.set_array(arr)
             else:
-                return self.ph.pack_rpc(
-                    self.ph.error_obj('encountered unknown blaze array type %s' % source_type), []
-                )
+                error = 'encountered unknown blaze array type %s' % source_type
+                error = self.ph.pack_rpc(self.ph.error_obj(error))
+                return error, []
+
         value = graph.eval()
         response = {'type' : "array"}
         response['shape'] = [int(x) for x in value.shape]
