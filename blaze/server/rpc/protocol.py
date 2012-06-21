@@ -174,7 +174,7 @@ class ProtocolHelper(object):
 
     def pack_envelope_blaze(self, envelope=None, clientid=None, reqid=None,
                             msgobj=None, dataobjs=None, datastrs=None):
-        if envelope is None : enevelope = []
+        if envelope is None : envelope = []
         if msgobj is None : msgobj = {}
         if dataobjs is None:
             if datastrs is None: datastrs = []
@@ -200,4 +200,11 @@ class ProtocolHelper(object):
                                msgobj=msgobj, datastrs=data)
         return unpackedmsg
 
+    def send_envelope_blaze(self, socket, **kwargs):
+        msg = self.pack_envelope_blaze(**kwargs)
+        socket.send_multipart(msg)
 
+    def recv_envelope_blaze(self, socket, deserialize_data=True):
+        msgs = socket.recv_multipart()
+        return self.unpack_envelope_blaze(msgs, deserialize_data=deserialize_data)
+    

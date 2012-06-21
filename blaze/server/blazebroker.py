@@ -180,9 +180,7 @@ class BlazeBroker(Broker, router.RPCRouter):
     def cannot_route(self, unpacked):
         del unpacked['datastrs']
         unpacked['msgobj'] = self.ph.pack_rpc(self.ph.error_obj('cannot route'))
-
-        messages = self.ph.pack_envelope_blaze(**unpacked)
-        self.frontend.send_multipart(messages)
+        self.ph.send_envelope_blaze(self.frontend, **unpacked)
 
     def route_get(self, path, data_slice=None, unpacked=None):
         log.info("route_get")
@@ -239,8 +237,7 @@ class BlazeBroker(Broker, router.RPCRouter):
         
     def send_to_address(self, unpacked, ident):
         unpacked['envelope'].insert(0, ident)
-        msg = self.ph.pack_envelope_blaze(**unpacked)
-        self.backend.send_multipart(msg)                
+        self.ph.send_envelope_blaze(self.backend, **unpacked)
         
 
 if __name__ == '__main__':

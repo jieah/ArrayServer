@@ -81,26 +81,19 @@ class ZDealerRPCClient(common.HasZMQSocket, BaseRPCClient):
         self.timeout = timeout
 
     def reqrep(self, requestobj, dataobj):
-        multipart_msg = self.ph.pack_blaze(self.ident, str(uuid.uuid4()), requestobj, dataobj)
-        multipart_msg = self.ph.pack_envelope([], multipart_msg)
-        log.debug('requesting, %s', multipart_msg)
-        self.socket.send_multipart(multipart_msg)
+        self.ph.send_envelope_blaze(self.socket, clientid=self.ident,
+                                    reqid=str(uuid.uuid4()), msgobj=requestobj,
+                                    dataobjs=dataobj)
         starttime = time.time()
         while True:
             socks = dict(self.poller.poll(timeout=self.timeout))
             if self.socket in socks:
-                responsemessages = self.socket.recv_multipart()
-                (envelope,
-                 responsemessages) = self.ph.unpack_envelope(
-                    responsemessages)
-                (clientid,
-                 reqid,
-                 responseobj,
-                 responsedatas) = self.ph.unpack_blaze(responsemessages)
-                if responseobj.get('msgtype') == 'rpcresponse':
-                    return responseobj, responsedatas
+                unpacked = self.ph.recv_envelope_blaze(self.socket,
+                                                       deserialize_data=True)
+                if unpacked['msgobj'].get('msgtype') == 'rpcresponse':
+                    return unpacked['msgobj'], unpacked['dataobjs']
                 else:
-                    log.debug(responseobj)
+                    log.debug(unpacked)
             if time.time() - starttime > (self.timeout / 1000.0):
                 return [None, None]
 

@@ -159,18 +159,16 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         self.workers[unpacked['reqid']] = worker
         worker.start()
         statusobj = self.ph.working_obj(unpacked['reqid'])
-        messages = self.ph.pack_envelope_blaze(
-            envelope=unpacked['envelope'],
-            clientid=unpacked['clientid'],
-            reqid=unpacked['reqid'],
-            msgobj=statusobj)
-        self.socket.send_multipart(messages)
+        self.ph.send_envelope_blaze(self.socket,
+                                    envelope=unpacked['envelope'],
+                                    clientid=unpacked['clientid'],
+                                    reqid=unpacked['reqid'],
+                                    msgobj=statusobj)
 
     def run_once(self):
         socks = dict(self.poller.poll(timeout=self.interval))
         if socks.get(self.socket) == zmq.POLLIN:
             messages = self.socket.recv_multipart()
-
             if len(messages) == 1 and messages[0] == constants.PPP_HEARTBEAT:
                 log.debug('heartbeat received')
                 pass
