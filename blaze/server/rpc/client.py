@@ -10,7 +10,7 @@ import time
 import cPickle as pickle
 import numpy as np
 
-import protocol
+import blaze.protocol as protocol
 import common
 
 log = logging.getLogger(__name__)

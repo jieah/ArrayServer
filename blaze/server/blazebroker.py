@@ -17,7 +17,7 @@ HEARTBEAT_INTERVAL = constants.HEARTBEAT_INTERVAL
 PPP_READY = constants.PPP_READY
 PPP_HEARTBEAT = constants.PPP_HEARTBEAT
 
-import rpc.protocol as protocol
+import blaze.protocol as protocol
 import rpc.router as router
 import blazeconfig
 

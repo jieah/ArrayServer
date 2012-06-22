@@ -9,8 +9,6 @@ import time
 import cPickle as pickle
 import numpy as np
 
-import protocol
-import common
 
 
 class HasZMQSocket(object):

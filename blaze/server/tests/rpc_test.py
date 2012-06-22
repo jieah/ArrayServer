@@ -5,6 +5,7 @@ import gevent_zeromq
 gevent_zeromq.monkey_patch()
 import zmq
 
+import blaze.protocol as protocol
 import blaze.server.rpc as rpc
 import blaze.server.rpc.client as client
 import blaze.server.rpc.server as server
@@ -45,8 +46,8 @@ class SerializationTestCase(unittest.TestCase):
     def test_np_serialization(self):
         a = np.random.random((10,10))
         b = np.array(['abc', 'abcdef'])
-        datastrs = rpc.protocol.default_serialize_data([a,b])
-        output = rpc.protocol.default_deserialize_data(datastrs)
+        datastrs = protocol.default_serialize_data([a,b])
+        output = protocol.default_deserialize_data(datastrs)
         assert (output[0] == a).all()
         assert (output[1] == b).all()
 
