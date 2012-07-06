@@ -9,13 +9,16 @@ import uuid
 import numpy
 from blaze.array_proxy import blaze_array_proxy
 from blaze.array_proxy import grapheval
-
+import posixpath as blazepath
 
 class BlazeRPC(server.RPC):
     def __init__(self, config, protocol_helper=None):
         self.metadata = config
         super(BlazeRPC, self).__init__(protocol_helper=protocol_helper)
 
+    def get_metadata_tree(self, path, depth=None):
+        return self.metadata.get_tree(path, depth=depth), []
+    
     def get(self, path, data_slice=None, data=None):
         #kwarg data, bc of rpc
         log.debug("called get")

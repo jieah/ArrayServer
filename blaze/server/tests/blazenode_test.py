@@ -30,9 +30,7 @@ logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 logging.debug("starting")
 
-backaddr = "inproc://#1"
-frontaddr = "inproc://#2"
-
+frontaddr = test_utils.frontaddr
 class RouterTestCase(test_utils.BlazeWithDataTestCase):
     def test_connect(self):
         assert len(self.broker.nodes) == 1
@@ -88,6 +86,12 @@ class RouterTestCase(test_utils.BlazeWithDataTestCase):
         xx = np.load(self.numpypath)
         yy = npp.sin(xx**3)
         assert (yy == data[0]).all()
+        
+    def test_get_tree(self):
+        rpcclient = client.BlazeClient(frontaddr)
+        rpcclient.connect()
+        tree, _ = rpcclient.rpc('get_metadata_tree', '/data')
+        assert tree['children'][0]['children'][0]['type'] == 'array'
 
 #     def test_summary_stats(self):
 #         rpcclient = client.BlazeClient(frontaddr)

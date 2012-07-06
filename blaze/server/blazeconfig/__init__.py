@@ -82,7 +82,23 @@ class BlazeConfig(object):
                 pipe.execute()
         if sourceconfig is not None:
             self.load_sources(sourceconfig)
-                
+    def get_tree(self, path, depth=None):
+        """depth None, is infinite depth
+        """
+        metadata = self.get_metadata(path)
+        metadata['url'] = path
+        if depth == 0:
+            return metadata
+        if metadata['type'] == 'group':
+            new_children = []
+            for child in metadata['children']:
+                newdepth = depth - 1 if depth is not None else None
+                childmetadata = self.get_tree(blazepath.join(path, child),
+                                              newdepth)
+                new_children.append(childmetadata)
+            metadata['children'] = new_children
+        return metadata
+        
     def load_sources(self, sources):
         for prefix, source in sources.iteritems():
             if source['type'] == 'native':
@@ -93,7 +109,7 @@ class BlazeConfig(object):
                     else:
                         generate_config_hdf5(
                             self.servername, url, path, self)
-                    
+                
     def create_group(self, path):
         self.safe_insert(blazepath.dirname(path),
                          blazepath.basename(path),

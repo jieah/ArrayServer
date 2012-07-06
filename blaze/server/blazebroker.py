@@ -182,6 +182,10 @@ class BlazeBroker(Broker, router.RPCRouter):
         unpacked['msgobj'] = self.ph.pack_rpc(self.ph.error_obj('cannot route'))
         self.ph.send_envelope_blaze(self.frontend, **unpacked)
 
+    def route_get_metadata_tree(self, path, depth=None, unpacked=None):
+        node = self.nodes.values()[0]        
+        self.send_to_address(unpacked, node.address)
+        
     def route_get(self, path, data_slice=None, unpacked=None):
         log.info("route_get")
         node = self.metadata.get_metadata(path)
