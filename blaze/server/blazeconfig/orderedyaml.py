@@ -45,6 +45,10 @@ class OrderedDictYAMLLoader(yaml.Loader):
             value = self.construct_object(value_node, deep=deep)
             mapping[key] = value
         return mapping
+    
+def _represent_dictorder( self, data):
+    return self.represent_mapping('tag:yaml.org,2002:map', data.items())
+yaml.add_representer(OrderedDict, _represent_dictorder)
 
 if __name__ == '__main__':
     import textwrap
