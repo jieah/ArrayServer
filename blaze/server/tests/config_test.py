@@ -42,7 +42,7 @@ class ConfigTestCase(unittest.TestCase):
         
     def test_from_hdf5(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
-        hdfpath = os.path.join(testroot, 'gold.hdf5')
+        hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
 
         blazeconfig.generate_config_hdf5('myserver', '/data',
                                          hdfpath, self.config)
@@ -55,7 +55,7 @@ class ConfigTestCase(unittest.TestCase):
         
     def test_from_numpy(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
-        path = os.path.join(testroot, 'test.npy')
+        path = os.path.join(testroot, 'data', 'test.npy')
 
         blazeconfig.generate_config_numpy('testserver', '/data/test', path,
                                           self.config)
@@ -80,7 +80,7 @@ class ConfigTestCase(unittest.TestCase):
 
     def test_from_sources(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
-        hdfpath = os.path.join(testroot, 'gold.hdf5')
+        hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
         sources = {'data' : {'type' : 'native',
                              'paths' : {'test' : hdfpath}}}
         self.config.load_sources(sources)

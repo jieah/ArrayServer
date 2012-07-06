@@ -1,5 +1,16 @@
 import time
 import zmq
+import unittest
+import os
+
+import blaze.server.redisutils as redisutils
+import blaze.server.blazeconfig as blazeconfig
+from blaze.server.blazeconfig import BlazeConfig, generate_config_hdf5, generate_config_numpy
+from blaze.server.blazebroker import BlazeBroker
+from blaze.server.blazenode import BlazeNode
+
+backaddr = "inproc://#1"
+frontaddr = "inproc://#2"
 
 def wait_until(func, timeout=1.0, interval=0.01):
     st = time.time()
@@ -19,3 +30,38 @@ def recv_timeout(socket, timeout):
 	else:
 		return None
 	
+class BlazeWithDataTestCase(unittest.TestCase):
+    def setUp(self):
+        testroot = os.path.abspath(os.path.dirname(__file__))
+        self.hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
+        self.numpypath = os.path.join(testroot, 'data', 'test.npy')
+        servername = 'myserver'
+        self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
+        time.sleep(0.1)
+        self.config = blazeconfig.BlazeConfig(servername, port=9000)
+        generate_config_hdf5(servername, '/data', self.hdfpath, self.config)
+        generate_config_numpy(servername, '/data/test', self.numpypath,
+                              self.config)
+        broker = BlazeBroker(frontaddr, backaddr, self.config, timeout=100.0)
+        broker.start()
+        self.broker = broker
+        rpcserver = BlazeNode(backaddr, 'testnodeident', self.config,
+                              interval=100.0)
+        rpcserver.start()
+        self.rpcserver = rpcserver
+        wait_until(lambda : len(broker.nodes) > 1)
+        
+    def tearDown(self):
+        self.redisproc.close()
+        if hasattr(self, 'rpcserver'):
+            self.rpcserver.kill = True
+            wait_until(lambda : self.rpcserver.socket.closed)
+            print 'rpcserver closed!'
+        if hasattr(self, 'broker'):
+            self.broker.kill = True
+            def done():
+                return self.broker.frontend.closed and self.broker.backend.closed
+            wait_until(done)
+            print 'broker closed!'
+        #we need this to wait for sockets to close, really annoying
+        time.sleep(0.2)

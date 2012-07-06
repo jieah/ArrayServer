@@ -33,41 +33,7 @@ logging.debug("starting")
 backaddr = "inproc://#1"
 frontaddr = "inproc://#2"
 
-class RouterTestCase(unittest.TestCase):
-    def setUp(self):
-        testroot = os.path.abspath(os.path.dirname(__file__))
-        self.hdfpath = os.path.join(testroot, 'gold.hdf5')
-        self.numpypath = os.path.join(testroot, 'test.npy')
-        servername = 'myserver'
-        self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
-        time.sleep(0.1)
-        self.config = blazeconfig.BlazeConfig(servername, port=9000)
-        generate_config_hdf5(servername, '/data', self.hdfpath, self.config)
-        generate_config_numpy(servername, '/data/test', self.numpypath, self.config)
-        broker = BlazeBroker(frontaddr, backaddr, self.config, timeout=100.0)
-        broker.start()
-        self.broker = broker
-        rpcserver = BlazeNode(backaddr, 'testnodeident', self.config,
-                              interval=100.0)
-        rpcserver.start()
-        self.rpcserver = rpcserver
-        test_utils.wait_until(lambda : len(broker.nodes) > 1)
-
-    def tearDown(self):
-        self.redisproc.close()
-        if hasattr(self, 'rpcserver'):
-            self.rpcserver.kill = True
-            test_utils.wait_until(lambda : self.rpcserver.socket.closed)
-            print 'rpcserver closed!'
-        if hasattr(self, 'broker'):
-            self.broker.kill = True
-            def done():
-                return self.broker.frontend.closed and self.broker.backend.closed
-            test_utils.wait_until(done)
-            print 'broker closed!'
-        #we need this to wait for sockets to close, really annoying
-        time.sleep(0.2)
-
+class RouterTestCase(test_utils.BlazeWithDataTestCase):
     def test_connect(self):
         assert len(self.broker.nodes) == 1
         
@@ -122,6 +88,23 @@ class RouterTestCase(unittest.TestCase):
         xx = np.load(self.numpypath)
         yy = npp.sin(xx**3)
         assert (yy == data[0]).all()
+
+#     def test_summary_stats(self):
+#         rpcclient = client.BlazeClient(frontaddr)
+#         rpcclient.connect()
+#         prices = rpcclient.blaze_source('/data/20100217/prices')
+#         responseobj, data = rpcclient.rpc('summary', data=[z])
+#         summary = responseobj['summary']
+#         columnsummary = responseobj['colsummary']
+#         assert summary['shape'] == [1561, 4]
+#         assert summary['numcols'] == 4
+#         assert summary['colnames'] == ['0', '1', '2', '3']
+        
+        
+#         xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]
+#         yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
+#         zz = np.sin((xx-yy)**3)
+#         assert (zz == data[0]).all()
 
 if __name__ == "__main__":
     unittest.main()

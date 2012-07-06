@@ -1,0 +1,7 @@
+[16052] 06 Jul 10:22:52 * Server started, Redis version 2.4.14
+[16052] 06 Jul 10:22:52 # WARNING overcommit_memory is set to 0! Background save may fail under low memory condition. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+[16052] 06 Jul 10:22:52 * The server is now ready to accept connections on port 6379
+[16052] 06 Jul 10:22:52 - 0 clients connected (0 slaves), 717496 bytes in use
+[16052] 06 Jul 10:22:52 - Accepted 127.0.0.1:36338
+[16052] 06 Jul 10:22:52 - Accepted 127.0.0.1:36339
+[16052] 06 Jul 10:22:52 - Client closed connection
