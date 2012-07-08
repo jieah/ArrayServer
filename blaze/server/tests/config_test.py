@@ -40,7 +40,7 @@ class ConfigTestCase(unittest.TestCase):
         assert '/path/here/myset' in self.config.get_dependencies(
             localpath='/datasets/scan')
         
-    def test_from_hdf5(self):
+    def test_load_from_hdf5(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
         hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
 
@@ -53,7 +53,7 @@ class ConfigTestCase(unittest.TestCase):
         assert '/data/20100217/names' in self.config.get_dependencies(
             localpath='/20100217/names')
         
-    def test_from_numpy(self):
+    def test_load_from_numpy(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
         path = os.path.join(testroot, 'data', 'test.npy')
 
@@ -78,7 +78,7 @@ class ConfigTestCase(unittest.TestCase):
         self.config.remove_source("/path/here/myset", sourceobj)
         assert self.config.get_metadata("/path/here/myset") is None
 
-    def test_from_sources(self):
+    def test_load_from_sources(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
         hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
         sources = {'data' : {'type' : 'native',
