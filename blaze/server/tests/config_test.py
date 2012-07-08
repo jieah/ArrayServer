@@ -64,18 +64,33 @@ class ConfigTestCase(unittest.TestCase):
         assert node['sources'][0]['type'] == 'numpy'
         assert '/data/test' in self.config.get_dependencies()
 
-    def test_remove(self):
+    def test_remove_source(self):
         a = np.arange(200)
         appendable = False
-        sources = []
         sourceobj = self.config.source_obj('testserver', 'hdf5',
-                                           servepath='/data/bin/data',
+                                           serverpath='/data/bin/data',
                                            localpath='/datasets/scan')
-        datasetobj = self.config.array_obj(sources)
-        self.config.create_dataset("/path/here/myset",
-                                   datasetobj)
+        datasetobj = self.config.array_obj([sourceobj])
+        self.config.create_dataset("/path/here/myset", datasetobj)
         self.config.add_source("/path/here/myset", sourceobj)
         self.config.remove_source("/path/here/myset", sourceobj)
+        assert self.config.get_metadata("/path/here/myset") is None
+        
+    def test_remove_sources(self):
+        a = np.arange(200)
+        appendable = False
+        sourceobj = self.config.source_obj('testserver', 'hdf5',
+                                           serverpath='/data/bin/data',
+                                           localpath='/datasets/scan')
+        datasetobj = self.config.array_obj([sourceobj])
+        self.config.create_dataset("/path/here/myset", datasetobj)
+        sourceobj = self.config.source_obj('testserver', 'hdf5',
+                                           serverpath='/data/bin/data2',
+                                           localpath='/datasets/scan')
+        datasetobj = self.config.array_obj([sourceobj])
+        self.config.create_dataset("/path/here/myset2", datasetobj)
+        assert self.config.get_metadata("/path/here/myset") is not None
+        self.config.remove_sources(servername='testserver')
         assert self.config.get_metadata("/path/here/myset") is None
 
     def test_load_from_sources(self):

@@ -265,10 +265,11 @@ class BlazeConfig(object):
         """
         affected_paths = self.get_dependencies(**kwargs)
         for path in affected_paths:
-            sources = hget(self.client, self.pathmap_key, path)
+            dataset = hget(self.client, self.pathmap_key, path)
+            sources = dataset['sources']
             to_remove = []
             for source in sources:
-                if all([(kwargs.get(k)==sourceobj.get(k)) for k in kwargs.keys()]):
+                if all([(kwargs.get(k)==source.get(k)) for k in kwargs.keys()]):
                     to_remove.append(source)
             for source in to_remove:
                 self._remove_source(writeclient, path, source)
