@@ -106,5 +106,26 @@ class ConfigTestCase(unittest.TestCase):
         assert '/data/test/20100217/names' in self.config.get_dependencies(
             localpath='/20100217/names')
         
+    def test_remove_url(self):
+        a = np.arange(200)
+        appendable = False
+        sourceobj = self.config.source_obj('testserver', 'hdf5',
+                                           serverpath='/data/bin/data',
+                                           localpath='/datasets/scan')
+        datasetobj = self.config.array_obj([sourceobj])
+        self.config.create_dataset("/path/here1/myset", datasetobj)
+        self.config.create_dataset("/path/here1/myset2", datasetobj)
+        
+        sourceobj = self.config.source_obj('testserver', 'hdf5',
+                                           serverpath='/data/bin/data2',
+                                           localpath='/datasets/scan')
+        datasetobj = self.config.array_obj([sourceobj])
+        self.config.create_dataset("/path/here2/myset", datasetobj)
+        
+        self.config.remove_url("/path/here1")
+        assert self.config.get_metadata("/path/here1/myset") is None
+        assert self.config.get_metadata("/path/here1/myset2") is None
+        assert self.config.get_metadata("/path/here1") is None
+        assert self.config.get_metadata("/path/here2/myset") is not None
 
 

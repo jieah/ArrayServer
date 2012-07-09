@@ -269,11 +269,30 @@ class BlazeConfig(object):
             sources = dataset['sources']
             to_remove = []
             for source in sources:
-                if all([(kwargs.get(k)==source.get(k)) for k in kwargs.keys()]):
+                if all([(kwargs.get(k)==source.get(k)) \
+                        for k in kwargs.keys()]):
                     to_remove.append(source)
             for source in to_remove:
                 self._remove_source(writeclient, path, source)
                 
+    def remove_url(self, path):
+        with self.client.pipeline() as pipe:
+            pipe.watch(self.pathmap_key)
+            pipe.watch(self.reversemap_key)
+            pipe.multi()
+            self._remove_url(pipe, path)
+            pipe.execute()
+            
+    def _remove_url(self, writeclient, path):
+        metadata = self.get_metadata(path)
+        if metadata['type'] == 'group':
+            for childpath in metadata['children']:
+                self._remove_url(writeclient, blazepath.join(path, childpath))
+        else:
+            for source in metadata['sources']:
+                self._remove_source(writeclient, path, source)
+        writeclient.hdel(self.pathmap_key, path)
+                                
     def remove_source(self, path, source):
         with self.client.pipeline() as pipe:
             pipe.watch(self.pathmap_key)
