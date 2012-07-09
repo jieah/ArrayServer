@@ -6,7 +6,7 @@ log = logging.getLogger(__name__)
 import collections
 import blazeconfig
 import uuid
-import numpy
+import numpy as np
 from blaze.array_proxy import blaze_array_proxy
 from blaze.array_proxy import grapheval
 import posixpath as blazepath
@@ -35,7 +35,7 @@ class BlazeRPC(server.RPC):
         if source_type == 'hdf5':
             arr = tables.openFile(source['serverpath']).getNode(source['localpath'])
         elif source_type == 'numpy':
-            arr = numpy.load(source['serverpath'])
+            arr = np.load(source['serverpath'])
         else:
             error = 'encountered unknown blaze array type %s' % source_type
             error = self.ph.pack_rpc(self.ph.error_obj(error))
@@ -59,7 +59,7 @@ class BlazeRPC(server.RPC):
             arr = tables.openFile(source['serverpath'])
             arr = arr.getNode(source['localpath'])
         elif source_type == 'numpy':
-            arr = numpy.load(source['serverpath'])
+            arr = np.load(source['serverpath'])
         arrinfo['shape'] = arr.shape
         arrinfo['dtype'] = arr.dtype
         return response, [arrinfo]
@@ -83,7 +83,45 @@ class BlazeRPC(server.RPC):
         response = {'type' : "array"}
         response['shape'] = [int(x) for x in value.shape]
         return response, [value]
-
+    
+    def summary(self, path):
+        metadata = self.metadata.get_metadata(path)
+        response, data = self.get_data(metadata)
+        if len(data) == 0:
+            # some sort of error..
+            # length checking to see if there is an error is hacky
+            # :hugo
+            return response, data
+        arr = data[0]
+        summary = {}
+        summary['shape'] = arr.shape
+        if arr.dtype.names:
+            colnames = arr.dtype.names
+            cols = [arr[x] for x in colnames]            
+        else:
+            if len(arr.shape) == 1:
+                colnames = [0]
+                cols = [arr]
+            else:
+                colnames = range(arr.shape[1])
+                cols = [arr[x] for x in colnames]
+        summary['colnames'] = colnames
+        colsummary = {}
+        for cname, col in zip(colnames, cols):
+            colsummary[cname] = continuous_summary(col)
+        summary = {'summary' : summary,
+                   'colsummary' : colsummary}
+        return summary, []
+    
+def continuous_summary(col):
+    return dict(
+        mean=np.mean(col),
+        std=np.std(col),
+        max=np.max(col),
+        min=np.min(col)
+        )
+        
+    
 class BlazeNode(server.ZParanoidPirateRPCServer):
     def __init__(self, zmq_addr, identity, config, interval=1000.0,
                  protocol_helper=None, ctx=None):

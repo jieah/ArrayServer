@@ -93,23 +93,19 @@ class RouterTestCase(test_utils.BlazeWithDataTestCase):
         tree, _ = rpcclient.rpc('get_metadata_tree', '/data')
         assert tree['children'][0]['children'][0]['type'] == 'array'
 
-#     def test_summary_stats(self):
-#         rpcclient = client.BlazeClient(frontaddr)
-#         rpcclient.connect()
-#         prices = rpcclient.blaze_source('/data/20100217/prices')
-#         responseobj, data = rpcclient.rpc('summary', data=[z])
-#         summary = responseobj['summary']
-#         columnsummary = responseobj['colsummary']
-#         assert summary['shape'] == [1561, 4]
-#         assert summary['numcols'] == 4
-#         assert summary['colnames'] == ['0', '1', '2', '3']
-        
-        
-#         xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]
-#         yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
-#         zz = np.sin((xx-yy)**3)
-#         assert (zz == data[0]).all()
-
+    def test_summary_stats(self):
+        rpcclient = client.BlazeClient(frontaddr)
+        rpcclient.connect()
+        prices = rpcclient.blaze_source('/data/20100217/prices')
+        responseobj, data = rpcclient.rpc('summary', '/data/20100217/prices')
+        summary = responseobj['summary']
+        columnsummary = responseobj['colsummary']
+        assert summary['shape'] == [1561, 3]
+        assert summary['colnames'] == [0, 1, 2]
+        assert '0' in columnsummary
+        assert '2' in columnsummary
+        assert columnsummary['1']['mean'] == 64.07833333333333
+    
 if __name__ == "__main__":
     unittest.main()
 

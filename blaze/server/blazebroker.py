@@ -235,6 +235,18 @@ class BlazeBroker(Broker, router.RPCRouter):
                 self.send_to_address(unpacked, target.address)
             else:
                 self.cannot_route(unpacked)
+                
+    def route_summary(self, path, unpacked=None):
+        log.info("route_info")
+        node = self.metadata.get_metadata(path)
+        if node['type'] != 'group':
+            servers = [x['servername'] for x in node['sources']]
+            if self.metadata.servername in servers:
+                #we have this data, route it to one of our workers
+                target = self.nodes.values()[0]   # TODO some sort of fair queuing
+                self.send_to_address(unpacked, target.address)
+            else:
+                self.cannot_route(unpacked)
 
     def route_store(self, url, datastrs, rawmessage=None):
         log.info("route store")
