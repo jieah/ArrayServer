@@ -36,6 +36,10 @@ class BlazeRPC(server.RPC):
             arr = tables.openFile(source['serverpath']).getNode(source['localpath'])
         elif source_type == 'numpy':
             arr = numpy.load(source['serverpath'])
+        else:
+            error = 'encountered unknown blaze array type %s' % source_type
+            error = self.ph.pack_rpc(self.ph.error_obj(error))
+            return error, []
         response['shape'] = [int(x) for x in arr.shape]            
         if data_slice is None:
             return response, [arr[:]]
@@ -67,20 +71,14 @@ class BlazeRPC(server.RPC):
             graph, blaze_array_proxy.BlazeArrayProxy)
         for node in array_nodes:
             # TODO we need to handle multiple physical sources
-            source = self.metadata.get_metadata(node.url)['sources'][0]
-            source_type = source['type']
-            if source_type == 'hdf5':
-                arr = tables.openFile(source['serverpath'])
-                arr = arr.getNode(source['localpath'])
-                node.set_array(arr[:])
-            elif source_type == 'numpy':
-                arr = numpy.load(source['serverpath'])
-                node.set_array(arr)
-            else:
-                error = 'encountered unknown blaze array type %s' % source_type
-                error = self.ph.pack_rpc(self.ph.error_obj(error))
-                return error, []
-
+            metadata = self.metadata.get_metadata(node.url)
+            response, data = self.get_data(metadata)
+            if len(data) == 0:
+                # some sort of error..
+                # length checking to see if there is an error is hacky
+                # :hugo
+                return response, data
+            node.set_array(data[0])
         value = graph.eval()
         response = {'type' : "array"}
         response['shape'] = [int(x) for x in value.shape]
