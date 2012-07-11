@@ -36,6 +36,11 @@ class BlazeRPC(server.RPC):
             arr = tables.openFile(source['serverpath']).getNode(source['localpath'])
         elif source_type == 'numpy':
             arr = np.load(source['serverpath'])
+        elif source_type == 'disco':
+            import disco.ddfs as ddfs
+            d = ddfs.DDFS(master=source['conn'])
+            arr = list(d.pull(source['tag']))[int(source['index'])]
+            arr = np.load(arr)
         else:
             error = 'encountered unknown blaze array type %s' % source_type
             error = self.ph.pack_rpc(self.ph.error_obj(error))

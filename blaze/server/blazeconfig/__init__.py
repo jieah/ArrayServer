@@ -126,10 +126,10 @@ class BlazeConfig(object):
                     for n in range(num_files):
                         url = blazepath.join('/', prefix, tag, str(n))
                         log.info('ADDING %s', url)
-                        source = self.source_obj(
+                        sourceobj = self.source_obj(
                             self.servername, 'disco',
-                            tag=tag, index=str(n))
-                        obj = self.disco_obj(sources=[source])
+                            tag=tag, index=str(n), conn=source['connection'])
+                        obj = self.disco_obj(sources=[sourceobj])
                         self.create_dataset(url, obj)
     
     def create_group(self, path):
