@@ -142,7 +142,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         try:
             self.socket.send(constants.PPP_HEARTBEAT, flags=zmq.NOBLOCK)
             self.last_heartbeat = time.time()
-            log.debug('heartbeat sent')
+            #log.debug('heartbeat sent')
         except zmq.ZMQError as e:
             log.debug('HEARTBEAT FAILED')
 
@@ -170,7 +170,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         if socks.get(self.socket) == zmq.POLLIN:
             messages = self.socket.recv_multipart()
             if len(messages) == 1 and messages[0] == constants.PPP_HEARTBEAT:
-                log.debug('heartbeat received')
+                #log.debug('heartbeat received')
                 pass
             else:
                 #messages from the outside world come here.
