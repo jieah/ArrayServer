@@ -125,7 +125,7 @@ class BlazeConfig(object):
                     num_files = len(list(d.pull(tag)))
                     for n in range(num_files):
                         url = blazepath.join('/', prefix, tag, str(n))
-                        log.info('ADDING %s', url)
+                        log.error('ADDING %s', url)
                         sourceobj = self.source_obj(
                             self.servername, 'disco',
                             tag=tag, index=str(n), conn=source['connection'])
@@ -284,6 +284,12 @@ class BlazeConfig(object):
             pipe.execute()
             
     def _remove_url(self, writeclient, path):
+        parentpath = os.path.dirname(path)
+        parentmeta = self.get_metadata(parentpath)
+        if parentmeta is not None:
+            parentmeta['children'] = [x for x in parentmeta['children'] \
+                                      if blazepath.join(parentpath, x) != path]
+            hset(writeclient, self.pathmap_key, parentpath, parentmeta)
         metadata = self.get_metadata(path)
         if metadata['type'] == 'group':
             for childpath in metadata['children']:

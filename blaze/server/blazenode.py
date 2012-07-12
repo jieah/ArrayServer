@@ -25,13 +25,12 @@ class BlazeRPC(server.RPC):
         metadata = self.metadata.get_metadata(path)
         if metadata['type'] != 'group':
             return self.get_data(metadata, data_slice=data_slice)
-
-    def get_data(self, metadata, data_slice=None):
-        response = {'type' : metadata['type']}
+    def _get_data(self, metadata, data_slice=None):
         sources = [x for x in metadata['sources'] \
                   if x['servername'] == self.metadata.servername]
         source = sources[0]
         source_type = source['type']
+        arr = None
         if source_type == 'hdf5':
             arr = tables.openFile(source['serverpath']).getNode(source['localpath'])
         elif source_type == 'numpy':
@@ -41,7 +40,12 @@ class BlazeRPC(server.RPC):
             d = ddfs.DDFS(master=source['conn'])
             arr = list(d.pull(source['tag']))[int(source['index'])]
             arr = np.load(arr)
-        else:
+        return arr
+        
+    def get_data(self, metadata, data_slice=None):
+        arr = self._get_data(metadata)
+        response = {'type' : metadata['type']}
+        if arr is None:
             error = 'encountered unknown blaze array type %s' % source_type
             error = self.ph.pack_rpc(self.ph.error_obj(error))
             return error, []
@@ -54,17 +58,9 @@ class BlazeRPC(server.RPC):
 
     def info(self, path):
         metadata = self.metadata.get_metadata(path)
+        arr = self._get_data(metadata)
         response = {'type' : metadata['type']}
         arrinfo = {}
-        sources = [x for x in metadata['sources'] \
-                  if x['servername'] == self.metadata.servername]
-        source = sources[0]
-        source_type = source['type']
-        if source_type == 'hdf5':
-            arr = tables.openFile(source['serverpath'])
-            arr = arr.getNode(source['localpath'])
-        elif source_type == 'numpy':
-            arr = np.load(source['serverpath'])
         arrinfo['shape'] = arr.shape
         arrinfo['dtype'] = arr.dtype
         return response, [arrinfo]
