@@ -2,6 +2,7 @@ import numbers
 import numpy as np
 from grapheval import GraphNode
 import grapheval
+client = None
 
 class MetaArrayProxy(type):
     py_binary_graph_methods = (
@@ -247,7 +248,12 @@ class ArrayNode(BaseArrayNode):
     #------------------------------------------------------------------------
     # BaseArrayNode interface
     #------------------------------------------------------------------------
-
+    def seval(self):
+        if client is not None:
+            return client.rpc('eval', data=[self])
+        else:
+            return None
+        
     def _graph_call(self, funcname, args, kw):
         # Return the a graphnode around the unbound method, and supplying
         # self as args[0].  In-place methodds (iadd,etc) are modified to
