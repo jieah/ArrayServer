@@ -80,7 +80,7 @@ class BlazeRPC(server.RPC):
                 # :hugo
                 return response, data
             node.set_array(data[0])
-        value = graph.eval()
+        value = np.ascontiguousarray(graph.eval())
         response = {'type' : "array"}
         response['shape'] = [int(x) for x in value.shape]
         return response, [value]

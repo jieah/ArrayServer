@@ -25,7 +25,7 @@ class BlazeArrayProxy(ArrayProxy):
 
     def seval(self):
         if hasattr(self, 'client'):
-            return self.client.rpc('eval', data=[self])
+            return self.client.rpc('eval', data=[self])[1][0]
         else:
             return None
 

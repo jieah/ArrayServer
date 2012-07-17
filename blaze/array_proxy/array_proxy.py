@@ -250,7 +250,7 @@ class ArrayNode(BaseArrayNode):
     #------------------------------------------------------------------------
     def seval(self):
         if client is not None:
-            return client.rpc('eval', data=[self])
+            return client.rpc('eval', data=[self])[1][0]            
         else:
             return None
         
