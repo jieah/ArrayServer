@@ -80,7 +80,7 @@ def argparser():
     parser.add_argument(
         '-ba', '--back-address',
         help='specify the internal address for communicating with workers',
-        default='tcp://127.0.0.1:5556'
+        default='tcp://127.0.0.1:5556'        
     )
     parser.add_argument(
         '-n', '--namespace',
@@ -100,6 +100,20 @@ def argparser():
     parser.add_argument('-sc', '--skip-config', action='store_true')
     parser.add_argument('-rc', '--rebuild-config', action='store_true')
     return parser
+
+pidprefix="/tmp"
+def write_pid(scriptname):
+    pidfile = os.path.join(pidprefix, scriptname + '.pid')
+    if os.path.exists(pidfile):
+        with open(pidfile) as f:
+            pid = int(f.read())
+            if pid != os.getpid():
+                raise Exception, "%s already running on this at PID %s" % (scriptname, pid)
+    else:
+        with open(pidfile, 'w') as f:
+            f.write(str(os.getpid()))
+    atexit.register(os.remove, pidfile)
+    return True
 
 def start_blaze(args):
     servername = args.server_name
@@ -124,13 +138,14 @@ def start_blaze(args):
     namespace = args.namespace
     frontaddr = args.front_address
     backaddr = args.back_address
-    node = blazenode.BlazeNode(backaddr, servername, config)
-    node.start()
     broker = blazebroker.BlazeBroker(frontaddr, backaddr, config)
     broker.start()
+    node = blazenode.BlazeNode(backaddr, servername, config)
+    node.start()
     return proc, broker, node
     
 def main():
+    write_pid('blaze')
     parser = argparser()
     args = parser.parse_args()
     redisproc, broker, node = start_blaze(args)
