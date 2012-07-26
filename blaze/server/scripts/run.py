@@ -66,7 +66,9 @@ import os.path
 import argparse
 def argparser():
     parser = argparse.ArgumentParser(description='Start blaze')
-    parser.add_argument('datapath', nargs="?")
+    datapath = os.path.abspath(os.path.dirname(blaze.server.tests.__file__))
+    datapath = os.path.join(datapath, 'data')
+    parser.add_argument('datapath', nargs="?", default=datapath)
     parser.add_argument(
         '-s', '--server-name',
         help='name of server',
@@ -101,9 +103,8 @@ def argparser():
     parser.add_argument('-rc', '--rebuild-config', action='store_true')
     return parser
 
-pidprefix="/tmp"
-def write_pid(scriptname):
-    pidfile = os.path.join(pidprefix, scriptname + '.pid')
+def write_pid(prefix, scriptname):
+    pidfile = os.path.join(prefix, scriptname + '.pid')
     if os.path.exists(pidfile):
         with open(pidfile) as f:
             pid = int(f.read())
@@ -145,9 +146,9 @@ def start_blaze(args):
     return proc, broker, node
     
 def main():
-    write_pid('blaze')
     parser = argparser()
     args = parser.parse_args()
+    write_pid('blaze')
     redisproc, broker, node = start_blaze(args)
     node.join()
     
