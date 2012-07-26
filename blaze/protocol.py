@@ -1,5 +1,5 @@
 import uuid
-import simplejson
+import json
 import threading
 import logging
 import time
@@ -24,8 +24,8 @@ list data which can be serialized and deserialized
 
 3.  rpc protocol, a layer around the msgobject and a data object
 """
-serialize_json =  simplejson.dumps
-deserialize_json = simplejson.loads
+serialize_json =  json.dumps
+deserialize_json = json.loads
 
 def default_serialize_data(data):
     """

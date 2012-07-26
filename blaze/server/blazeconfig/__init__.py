@@ -8,7 +8,6 @@ import orderedyaml
 import yaml
 log = logging.getLogger(__name__)
 import collections
-import simplejson
 import numpy
 import posixpath as blazepath
 import blaze.server.redisutils as redisutils

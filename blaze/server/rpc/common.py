@@ -1,5 +1,4 @@
 import uuid
-import simplejson
 import threading
 import operator
 import zmq
