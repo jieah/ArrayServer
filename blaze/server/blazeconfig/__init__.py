@@ -89,7 +89,7 @@ class BlazeConfig(object):
             rootkey = self.pathmap_key("/")            
             pipe.watch(self.pathmap_key("/"))
             pipe.multi()
-            group = self.get_pathmap_obj(rootkey)
+            group = self.get_pathmap_obj("/")
             if not group:
                 self.set_pathmap_obj("/", self.group_obj([]), client=pipe)
             pipe.execute()
