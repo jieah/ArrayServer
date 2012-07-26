@@ -41,6 +41,7 @@ class BlazeRPC(server.RPC):
             d = ddfs.DDFS(master=source['conn'])
             arr = list(d.pull(source['tag']))[int(source['index'])]
             arr = np.load(arr)
+        arr = np.ascontiguousarray(arr)
         return arr
         
     def get_data(self, metadata, data_slice=None):

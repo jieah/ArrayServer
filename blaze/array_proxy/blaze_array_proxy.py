@@ -21,7 +21,7 @@ class BlazeArrayProxy(ArrayProxy):
         msg, data = client.rpc('info', self.url)
         info = data[0]
         self.cached_shape = info['shape']
-        self.cached_dtype = info['dtype']
+        self.cached_dtype = info.get('dtype', None)
 
     def seval(self):
         if hasattr(self, 'client'):
