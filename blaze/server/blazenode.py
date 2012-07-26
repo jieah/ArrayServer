@@ -25,6 +25,7 @@ class BlazeRPC(server.RPC):
         metadata = self.metadata.get_metadata(path)
         if metadata['type'] != 'group':
             return self.get_data(metadata, data_slice=data_slice)
+        
     def _get_data(self, metadata, data_slice=None):
         sources = [x for x in metadata['sources'] \
                   if x['servername'] == self.metadata.servername]
@@ -109,7 +110,11 @@ class BlazeRPC(server.RPC):
         summary['colnames'] = colnames
         colsummary = {}
         for cname, col in zip(colnames, cols):
-            colsummary[cname] = continuous_summary(col)
+            try:
+                colsummary[cname] = continuous_summary(col)
+            except Exception as e:
+                log.exception(e)
+                
         summary = {'summary' : summary,
                    'colsummary' : colsummary}
         return summary, []
