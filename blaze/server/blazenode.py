@@ -63,7 +63,8 @@ class BlazeRPC(server.RPC):
         response = {'type' : metadata['type']}
         arrinfo = {}
         arrinfo['shape'] = arr.shape
-        arrinfo['dtype'] = arr.dtype
+        if hasattr(arr, 'dtype'):
+            arrinfo['dtype'] = arr.dtype
         return response, [arrinfo]
     
     def eval(self, data):
@@ -121,10 +122,10 @@ class BlazeRPC(server.RPC):
     
 def continuous_summary(col):
     return dict(
-        mean=np.mean(col),
-        std=np.std(col),
-        max=np.max(col),
-        min=np.min(col)
+        mean=np.mean(col).tolist(),
+        std=np.std(col).tolist(),
+        max=np.max(col).tolist(),
+        min=np.min(col).tolist()
         )
         
     

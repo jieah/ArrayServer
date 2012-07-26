@@ -24,7 +24,16 @@ list data which can be serialized and deserialized
 
 3.  rpc protocol, a layer around the msgobject and a data object
 """
-serialize_json =  json.dumps
+class NumpyJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        
+
+
+        
+def serialize_json(obj):
+    return json.dumps(obj, cls=NumpyJSONEncoder)
 deserialize_json = json.loads
 
 def default_serialize_data(data):
