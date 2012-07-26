@@ -13,6 +13,7 @@ import blaze.server.blazeconfig as blazeconfig
 import blaze.server.blazeconfig.orderedyaml as orderedyaml
 import blaze.server.blazenode as blazenode
 import blaze.server.blazebroker as blazebroker
+import blaze.server.tests.test_utils as test_utils
 
 import redis
 import collections
@@ -21,9 +22,28 @@ import yaml
 import os
 import logging
 import time
-import posixpath as blazepath
+import atexit
+
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
+
+def start_redis(datapath, redis_port):
+    proc = redisutils.RedisProcess(redis_port, datapath,
+        data_file=os.path.join(datapath, 'redis.db'),
+        log_file=os.path.join(datapath, 'redis.log'))
+    atexit.register(proc.close)
+    def redis_ping():
+        log.info('checking on redis')
+        conn = redis.Redis(port=redis_port)
+        try:
+            status =  conn.ping()
+            if status:
+                log.info('redis is up')
+            return status
+        except redis.ConnectionError as e:
+            return False
+    test_utils.wait_until(redis_ping, timeout=5.0, interval=0.5)
+    return proc
 
 #load a directory full of hdf5 files
 def build_config(datadir, disco=None):
@@ -91,12 +111,7 @@ def start_blaze(args):
     print 'datapath', datapath
     if not args.no_redis:
         assert args.redis_host == 'localhost', 'cannot start redis on another host'
-        proc = redisutils.RedisProcess(
-            args.redis_port,
-            datapath,
-            data_file=os.path.join(datapath, 'redis.db'),
-            log_file=os.path.join(datapath, 'redis.log'))
-    time.sleep(0.1)
+        proc = start_redis(datapath, args.redis_port)
     if not args.skip_config:
         build_config(datapath, disco=args.disco)
         data = yaml.load(open(os.path.join(datapath, 'blaze.config')).read(),
