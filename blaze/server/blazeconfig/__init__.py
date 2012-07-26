@@ -13,6 +13,7 @@ import numpy
 import posixpath as blazepath
 import blaze.server.redisutils as redisutils
 import redis
+import redis.exceptions 
 import cPickle as pickle
 import glob
 import urllib
@@ -31,6 +32,12 @@ def deserialize(strdata):
         return None
     else:
         return pickle.loads(strdata)
+    
+def kget(client, key):
+    return deserialize(client.get(key))
+    
+def kset(client, key, val):
+    client.set(key, serialize(val))
     
 def hget(client, key, field):
     return deserialize(client.hget(key, field))
@@ -78,18 +85,65 @@ class BlazeConfig(object):
         self.servername = servername
         self.sourceconfig = sourceconfig
         self.client = redis.Redis(host=host, port=port)
-        self.pathmap_key = 'pathmap'
-        self.reversemap_key = 'reversemap:' + self.servername
-        if not self.client.hexists(self.pathmap_key, '/'):
-            with self.client.pipeline() as pipe:
-                pipe.watch(self.pathmap_key)
-                pipe.multi()
-                if not self.client.hexists(self.pathmap_key, '/'):
-                    hset(pipe, self.pathmap_key, '/', self.group_obj([]))
-                pipe.execute()
         if sourceconfig is not None:
             self.load_sources(sourceconfig)
             
+    def get_reversemap_paths(self, sourcekey, client=None):
+        if client is None: client = self.client
+        return hget(client, self.reversemap_key(), sourcekey)
+    
+    def set_reversemap_paths(self, sourcekey, paths, client=None):
+        if client is None: client = self.client
+        hset(client, self.reversemap_key(), sourcekey, paths)        
+
+    def delete_reversemap_paths(self, sourcekey, client=None):
+        if client is None: client = self.client        
+        client.hdel(self.reversemap_key(), sourcekey)
+
+    def reverse_map_exists(self, sourcekey, client=None):
+        if client is None: client = self.client
+        return client.hexists(self.reversemap_key(), sourcekey)
+        
+    def add_to_group(self, path, name, client=None):
+        if client is None: client = self.client        
+        client.sadd(self.pathmap_key(path), name)
+                    
+    def remove_from_group(self, path, names, client=None):
+        if client is None: client = self.client
+        client.srem(self.pathmap_key(path), *names)
+        
+    def get_group_contents(self, path, client=None):
+        if client is None: client = self.client
+        return client.smembers(self.pathmap_key(path))
+    
+    def is_group(self, path, client=None):
+        if path == "/":
+            return True
+        if client is None: client = self.client
+        return client.type(self.pathmap_key(path)) == 'set'
+    
+    def is_none(self, path, client=None):
+        if client is None: client = self.client
+        return client.type(self.pathmap_key(path)) == 'none'
+            
+    def set_dataset(self, path, datasetobj, client=None):
+        if client is None: client = self.client        
+        kset(client, self.pathmap_key(path), datasetobj)
+    
+    def delete_dataset(self, path, client=None):
+        if client is None: client = self.client
+        client.delete(self.pathmap_key(path))
+        
+    def get_dataset(self, path, client=None):
+        if client is None: client = self.client
+        return kget(client, self.pathmap_key(path))
+
+    def pathmap_key(self, path):
+        return 'pathmap:' + path
+    
+    def reversemap_key(self):
+        return 'reversemap:%s' % (self.servername)
+    
     def get_tree(self, path, depth=None):
         """depth None, is infinite depth
         """
@@ -132,15 +186,6 @@ class BlazeConfig(object):
                         obj = self.disco_obj(sources=[sourceobj])
                         self.create_dataset(url, obj)
     
-    def create_group(self, path):
-        self.safe_insert(blazepath.dirname(path),
-                         blazepath.basename(path),
-                         self.group_obj([]))
-
-    def group_obj(self, children):
-        return {'type' : 'group',
-                'children' : children}
-    
     def source_obj(self, servername, type, **kwargs):
         base = {'type' : type,
                 'servername' : servername}
@@ -156,53 +201,72 @@ class BlazeConfig(object):
         return {'type' : 'disco',
                 'sources' : sources}
     
-    def safe_insert(self, parentpath, name, obj):
-        with self.client.pipeline() as pipe:
-            pipe.watch(self.pathmap_key)
-            pipe.multi()
-            self._safe_insert(pipe, parentpath, name, obj)
-            pipe.execute()
+    def ensuregroups(self, path):
+        if self.is_group(path):
+            return
+        if self.is_none(path):
+            parentpath = blazepath.dirname(path)
+            parentkey = self.pathmap_key(parentpath)
+            name = blazepath.basename(path)
+            self.ensuregroups(parentpath)
+            self.add_to_group(parentpath, name)
+        else:
+            raise BlazeConfigError, '%s is not a group' % path
         
-    def _safe_insert(self, writeclient, parentpath, name, obj):        
-        newpath = blazepath.join(parentpath, name)
-        if not self.client.hexists(self.pathmap_key, parentpath):
-            parent = self._safe_insert(writeclient, 
-                blazepath.dirname(parentpath),
-                blazepath.basename(parentpath),
-                self.group_obj([]))
-        else:
-            parent = hget(self.client, self.pathmap_key, parentpath)
-        if name not in parent['children']:
-            parent['children'].append(name)
-            hset(writeclient, self.pathmap_key, parentpath, parent)
-        hset(writeclient, self.pathmap_key, newpath, obj)
-        return obj
-    
-    def list_children(self, path):
-        group = hget(self.client, self.pathmap_key, path)
-        if group is None or group['type'] != 'group':
-            raise BlazeConfigError
-        else:
-            return [blazepath.join(path, x) for x in group['children']]
-
-    def create_dataset(self, path, obj):
+    def add_reverse_map(self, path, source):
         with self.client.pipeline() as pipe:
-            pipe.watch(self.pathmap_key)
             pipe.watch(self.reversemap_key)
+            self._add_reverse_map(pipe, path, source)
+            pipe.execute()
+                
+    def _add_reverse_map(self, writeclient, path, source):
+        sourcekey = self.sourcekey(source)
+        if self.reverse_map_exists(sourcekey):
+            paths = self.get_reversemap_paths(sourcekey)
+            if path not in paths: paths.append(path)
+        else:
+            paths = [path]
+        self.set_reversemap_paths(sourcekey, paths, client=writeclient)
+            
+    def get_metadata(self, path):
+        if self.is_group(path):
+            return dict(type='group',
+                        children=list(self.get_group_contents(path)))
+        else:
+            return self.get_dataset(path)
+            
+    def create_dataset(self, path, obj):
+        self.ensuregroups(path)
+        #add reverse maps for sources
+        #add current node
+        with self.client.pipeline() as pipe:
+            newkey = self.pathmap_key(path)
+            pipe.watch(self.reversemap_key())
+            pipe.watch(newkey)
             pipe.multi()
-            self._safe_insert(pipe, blazepath.dirname(path),
-                              blazepath.basename(path), obj)
             for source in obj['sources']:
                 self._add_reverse_map(pipe, path, source)
+            self.set_dataset(path, obj, client=pipe)
             pipe.execute()
+        
+    def list_children(self, path):
+        try:
+            paths = self.get_group_contents(path)
+            return [blazepath.join(path, x) for x in paths]
+        except redis.exceptions.ResponseError as e:
+            if not self.is_group(path):
+                raise BlazeConfigError
+            else:
+                raise
             
     def add_source(self, path, source):
         with self.client.pipeline() as pipe:
-            pipe.watch(self.pathmap_key)
-            pipe.watch(self.reversemap_key)                
-            node = hget(pipe, self.pathmap_key, path)
+            pipe.watch(self.pathmap_key(path))
+            pipe.watch(self.reversemap_key())                
+            node = self.get_dataset(path)
             if source not in node['sources']:
                 node['sources'].append(source)
+            self.set_dataset(path, node, client=pipe)
             self._add_reverse_map(pipe, path, source)
             
     def sourcekey(self, sourceobj):
@@ -220,112 +284,95 @@ class BlazeConfig(object):
                 for x in range(0, len(data), 2)]
         return dict(data)
     
-    def add_reverse_map(self, path, source):
-        with self.client.pipeline() as pipe:
-            pipe.watch(self.reversemap_key)
-            self._add_reverse_map(pipe, path, source)
-            pipe.execute()
-                
-    def _add_reverse_map(self, writeclient, path, source):
-        sourcekey = self.sourcekey(source)
-        if not self.client.hexists(self.reversemap_key, sourcekey):
-            hset(writeclient, self.reversemap_key, sourcekey, [path])
-        else:
-            paths = hget(self.client, self.reversemap_key, sourcekey)
-            if path not in paths:
-                paths.append(path)
-            hset(writeclient, self.reversemap_key, sourcekey, paths)
-            
-    def get_metadata(self, path):
-        return hget(self.client, self.pathmap_key, path)
-    
-    def get_dependencies(self, **kwargs):
-        keys = self.client.hkeys(self.reversemap_key)
-        deps = set()        
+    def get_matching_reversemap_keys(self, **kwargs):
+        keys = self.client.hkeys(self.reversemap_key())
+        matching = set()
         for key in keys:
             sourceobj = self.parse_sourcekey(key)
             if all([(kwargs.get(k) == sourceobj.get(k)) for k in kwargs.keys()]):
-                deps.update(hget(self.client, self.reversemap_key, key))
+                matching.add(key)
+        return matching
+    
+    def get_dependencies(self, **kwargs):
+        keys = self.get_matching_reversemap_keys(**kwargs)
+        deps = set()
+        for key in keys:
+            deps.update(self.get_reversemap_paths(key))
         return deps
     
     def remove_sources(self, **kwargs):
         """remove all sources that match the kwargs passed in.
         remove any urls which are empty as a result
         """
-        with self.client.pipeline() as pipe:
-            pipe.watch(self.pathmap_key)
-            pipe.watch(self.reversemap_key)
-            pipe.multi()
-            self._remove(pipe, **kwargs)
-            pipe.execute()
-            
-    def _remove(self, writeclient, **kwargs):
-        """remove all sources that match the kwargs passed in.
-        remove any urls which are empty as a result
-        """
-        affected_paths = self.get_dependencies(**kwargs)
-        for path in affected_paths:
-            dataset = hget(self.client, self.pathmap_key, path)
-            sources = dataset['sources']
-            to_remove = []
-            for source in sources:
-                if all([(kwargs.get(k)==source.get(k)) \
-                        for k in kwargs.keys()]):
-                    to_remove.append(source)
-            for source in to_remove:
-                self._remove_source(writeclient, path, source)
+        matching_keys = self.get_matching_reversemap_keys(**kwargs)
+        for key in matching_keys:
+            sourceobj = self.parse_sourcekey(key)
+            paths = self.get_reversemap_paths(key)
+            for p in paths:
+                self.remove_source(p, sourceobj)
                 
-    def remove_url(self, path):
-        with self.client.pipeline() as pipe:
-            pipe.watch(self.pathmap_key)
-            pipe.watch(self.reversemap_key)
-            pipe.multi()
-            self._remove_url(pipe, path)
-            pipe.execute()
-            
-    def _remove_url(self, writeclient, path):
-        parentpath = os.path.dirname(path)
-        parentmeta = self.get_metadata(parentpath)
-        if parentmeta is not None:
-            parentmeta['children'] = [x for x in parentmeta['children'] \
-                                      if blazepath.join(parentpath, x) != path]
-            hset(writeclient, self.pathmap_key, parentpath, parentmeta)
-        metadata = self.get_metadata(path)
-        if metadata['type'] == 'group':
-            for childpath in metadata['children']:
-                self._remove_url(writeclient, blazepath.join(path, childpath))
-        else:
-            for source in metadata['sources']:
-                self._remove_source(writeclient, path, source)
-        writeclient.hdel(self.pathmap_key, path)
-                                
     def remove_source(self, path, source):
         with self.client.pipeline() as pipe:
-            pipe.watch(self.pathmap_key)
-            pipe.watch(self.reversemap_key)
+            pipe.watch(self.pathmap_key(path))
+            pipe.watch(self.reversemap_key())
             pipe.multi()
             self._remove_source(pipe, path, source)
             pipe.execute()
             
     def _remove_source(self, writeclient, path, source):
-        node = hget(self.client, self.pathmap_key, path)
+        node = self.get_dataset(path)
         newsources = [x for x in node['sources'] if x != source]
         self._remove_reverse_map(writeclient, path, source)
         if len(newsources) > 0:
             node['sources'] = newsources
-            hset(writeclient, self.pathmap_key, path, node)
+            self.set_dataset(path, node, client=writeclient)
         else:
-            writeclient.hdel(self.pathmap_key, path)
+            self.delete_dataset(path, client=writeclient)
 
     def _remove_reverse_map(self, writeclient, path, source):
         sourcekey = self.sourcekey(source)
-        paths = hget(self.client, path, source)
+        paths = self.get_reversemap_paths(sourcekey)
         if paths is not None:
             paths = [x for x in paths if paths != path]
             if len(paths) == 0:
-                writeclient.hdel(self.reversemap_key, sourcekey)
+                self.delete_reversemap_paths(sourcekey, client=writeclient)
             else:
-                hset(writeclient, self.reversemap_key, sourcekey, paths)
+                self.set_reversemap_paths(sourcekey, paths, client=writeclient)
+        else:
+            raise BlazeConfigError
+        
+    def watch_tree(self, pipe, path):
+        pipe.watch(self.pathmap_key(path))
+        if self.is_group(path):
+            child_paths = self.list_children(path)
+            for cpath in child_paths:
+                self.watch_tree(pipe, cpath)
+        
+    def remove_url(self, path):
+        with self.client.pipeline() as pipe:
+            pipe.watch(self.reversemap_key())
+            self.watch_tree(pipe, path)
+            pipe.multi()
+            parentpath = blazepath.dirname(path)
+            name = blazepath.basename(path)
+            self.remove_from_group(parentpath, [name])
+            self._remove_url(pipe, path)
+            pipe.execute()
+            
+    def _remove_url(self, writeclient, path):
+        print 'REMOVING', path
+        parentpath = blazepath.dirname(path)
+        name = blazepath.basename(path)        
+        metadata = self.get_metadata(path)
+        if metadata['type'] == 'group':
+            for childpath in metadata['children']:
+                self._remove_url(writeclient, blazepath.join(path, childpath))
+            self.remove_from_group(path, metadata['children'], client=writeclient)
+        else:
+            for source in metadata['sources']:
+                self._remove_source(writeclient, path, source)
+
+                                
 
 def generate_config_hdf5(servername, blazeprefix, datapath, config):
     assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')

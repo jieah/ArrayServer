@@ -14,11 +14,6 @@ class ConfigTestCase(unittest.TestCase):
         
     def tearDown(self):
         self.redisproc.close()
-        
-    def test_create_group(self):
-        self.config.create_group("/path/here/again")
-        assert "/path/here" in self.config.list_children("/path")
-        assert "/path/here/again" in self.config.list_children("/path/here")
 
     def test_create_dataset(self):
         a = np.arange(200)
