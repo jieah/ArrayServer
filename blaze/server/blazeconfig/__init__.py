@@ -168,17 +168,19 @@ class BlazeConfig(object):
                 new_children.append(childmetadata)
             metadata['children'] = new_children
         return metadata
-        
+    
+    def load_native(path, url):
+        import pdb;pdb.set_trace()
+    
     def load_sources(self, sources):
         for prefix, source in sources.iteritems():
             if source['type'] == 'native':
                 for filegroup, path in source['paths'].iteritems():
                     url = blazepath.join('/', prefix, filegroup)
                     if os.path.isdir(path):
-                        load_dir(path, url, self.servername, self)
-                    else:
-                        generate_config_hdf5(
-                            self.servername, url, path, self)
+                        load_dir(self.servername, url, path, self)
+                    else :
+                        load_file(self.servername, url, path, self)
             if source['type'] == 'disco':
                 import disco.ddfs as ddfs
                 d = ddfs.DDFS(master=source['connection'])
@@ -415,8 +417,15 @@ def generate_config_numpy(servername, blazeprefix, filepath, config):
             [config.source_obj(servername, 'numpy', serverpath=filepath)])
     blazeurl = blazeprefix
     config.create_dataset(blazeurl, obj)
-
-def load_dir(datadir, blazeprefix, servername, config,
+    
+def load_file(servername, blazeprefix, filepath, config):
+    if tables.isHDF5File(filepath):
+        generate_config_hdf5(servername, blazeprefix, filepath, config)
+    elif os.path.splitext(filepath)[-1] in ['.npy', '.npz']:
+        generate_config_numpy(servername, blazeprefix, filepath, config)
+    return
+    
+def load_dir(servername, blazeprefix, datadir, config,
              ignore=['redis.db', 'redis.log', 'blaze.config']):
     ignore = set([os.path.join(datadir, x) for x in ignore])
     base_split_names = path_split(datadir)
@@ -429,7 +438,7 @@ def load_dir(datadir, blazeprefix, servername, config,
             file_split_names = path_split(fpath)
             file_split_names = file_split_names[len(base_split_names):]
             blaze_url = blazepath.join(blazeprefix, *file_split_names)
-            generate_config_hdf5(servername, blaze_url, fpath, config)
+            load_file(servername, blaze_url, fpath, config)
     
     
 

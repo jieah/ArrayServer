@@ -2,6 +2,7 @@ import time
 import zmq
 import unittest
 import os
+import redis
 
 import blaze.server.redisutils as redisutils
 import blaze.server.blazeconfig as blazeconfig
@@ -35,13 +36,19 @@ class BlazeWithDataTestCase(unittest.TestCase):
         testroot = os.path.abspath(os.path.dirname(__file__))
         self.hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
         self.numpypath = os.path.join(testroot, 'data', 'test.npy')
+        sourceconfig = {
+            'blaze' : {
+                'type' : 'native',
+                'paths' : {
+                    'data' : os.path.join(testroot, 'data')
+                    }
+                }
+            }
         servername = 'myserver'
         self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
-        time.sleep(0.1)
-        self.config = blazeconfig.BlazeConfig(servername, port=9000)
-        generate_config_hdf5(servername, '/data', self.hdfpath, self.config)
-        generate_config_numpy(servername, '/data/test', self.numpypath,
-                              self.config)
+        wait_for_redis(9000)
+        self.config = blazeconfig.BlazeConfig(servername, port=9000,
+                                              sourceconfig=sourceconfig)
         broker = BlazeBroker(frontaddr, backaddr, self.config, timeout=100.0)
         broker.start()
         self.broker = broker
@@ -65,3 +72,14 @@ class BlazeWithDataTestCase(unittest.TestCase):
             print 'broker closed!'
         #we need this to wait for sockets to close, really annoying
         time.sleep(0.2)
+
+def wait_for_redis(redis_port):
+    def redis_ping():
+        conn = redis.Redis(port=redis_port)
+        try:
+            status =  conn.ping()
+            if status:
+                return status
+        except redis.ConnectionError as e:
+            return False
+    return wait_until(redis_ping, timeout=5.0, interval=0.5)
