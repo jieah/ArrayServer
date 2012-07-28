@@ -100,6 +100,16 @@ class RouterTestCase(test_utils.BlazeWithDataTestCase):
         zz = np.sin((xx-yy)**3)
         assert (zz == data[0]).all()
         
+    def test_store_array_proxy(self):
+        rpcclient = client.BlazeClient(frontaddr)
+        rpcclient.connect()
+        x = rpcclient.blaze_source('/blaze/data/gold.hdf5/20100217/names')
+        rpcclient.rpc('store', urls=['/tmp/mytempdata'], data=[x])
+        responseobj, data = rpcclient.rpc('get', '/tmp/mytempdata')
+        data = data[0]
+        assert len(data) == 3
+        assert 'GDX' in data
+
     
     def test_eval_with_numpy_sources(self):
         rpcclient = client.BlazeClient(frontaddr)
