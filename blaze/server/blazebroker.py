@@ -190,7 +190,14 @@ class BlazeBroker(Broker, router.RPCRouter):
     def route_get(self, path, data_slice=None, unpacked=None):
         log.info("route_get")
         node = self.metadata.get_metadata(path)
-        if node['type'] != 'group':
+        if node['type'] == 'deferredarray':
+            self.default_route(unpacked=unpacked)
+        elif node['type'] == 'group':
+            unpacked['msgobj'] = self.ph.pack_rpc({'type' : 'group',
+                                                   'children' : node['children']})
+            messages = self.ph.pack_envelope_blaze(**unpacked)
+            self.frontend.send_multipart(messages)
+        else:
             servers = [x['servername'] for x in node['sources']]
             if self.metadata.servername in servers:
                 #we have this data, route it to one of our workers
@@ -199,11 +206,6 @@ class BlazeBroker(Broker, router.RPCRouter):
                 self.send_to_address(unpacked, node.address)
             else:
                 self.cannot_route(unpacked)
-        else:
-            unpacked['msgobj'] = self.ph.pack_rpc({'type' : 'group',
-                                                   'children' : node['children']})
-            messages = self.ph.pack_envelope_blaze(**unpacked)
-            self.frontend.send_multipart(messages)
 
     def route_eval(self, datastrs, unpacked=None):
         ## alot of our routing logic makes no sense right now, because
@@ -228,10 +230,6 @@ class BlazeBroker(Broker, router.RPCRouter):
                 log.info('sending blaze source eval to backend %s' % node)
                 self.send_to_address(unpacked, node.address)
                 
-    def route_store(self, urls=None, data=None, unpacked=None):
-        node = self.nodes.values[0]
-        self.send_to_address(unpacked, node.address)
-        
     def route_info(self, path, unpacked=None):
         log.info("route_info")
         node = self.metadata.get_metadata(path)
@@ -256,9 +254,6 @@ class BlazeBroker(Broker, router.RPCRouter):
             else:
                 self.cannot_route(unpacked)
 
-    def route_store(self, url, datastrs, rawmessage=None):
-        log.info("route store")
-        
     def send_to_address(self, unpacked, ident):
         unpacked['envelope'].insert(0, ident)
         self.ph.send_envelope_blaze(self.backend, **unpacked)

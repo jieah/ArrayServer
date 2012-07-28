@@ -85,7 +85,22 @@ class RouterTestCase(test_utils.BlazeWithDataTestCase):
         yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
         zz = np.sin((xx-yy)**3)
         assert (zz == data[0]).all()
-
+        
+    def test_store_array_node(self):
+        rpcclient = client.BlazeClient(frontaddr)
+        rpcclient.connect()
+        x = rpcclient.blaze_source('/blaze/data/gold.hdf5/20100217/prices')
+        y = rpcclient.blaze_source('/blaze/data/gold.hdf5/20100218/prices')
+        z = npp.sin((x-y)**3)
+        rpcclient.rpc('store', urls=['/tmp/mytempdata'], data=[z])
+        responseobj, data = rpcclient.rpc('get', '/tmp/mytempdata')
+            
+        xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]
+        yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
+        zz = np.sin((xx-yy)**3)
+        assert (zz == data[0]).all()
+        
+    
     def test_eval_with_numpy_sources(self):
         rpcclient = client.BlazeClient(frontaddr)
         rpcclient.connect()

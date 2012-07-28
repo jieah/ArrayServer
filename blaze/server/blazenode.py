@@ -5,9 +5,11 @@ import rpc.server as server
 log = logging.getLogger(__name__)
 import collections
 import blazeconfig
+import cPickle as pickle
 import uuid
 import numpy as np
-from blaze.array_proxy import blaze_array_proxy
+import blaze.array_proxy.blaze_array_proxy as blaze_array_proxy
+import blaze.array_proxy.array_proxy as array_proxy
 from blaze.array_proxy import grapheval
 import posixpath as blazepath
 
@@ -27,6 +29,11 @@ class BlazeRPC(server.RPC):
             return self.get_data(metadata, data_slice=data_slice)
         
     def _get_data(self, metadata, data_slice=None):
+        if metadata['type'] == 'deferredarray':
+            proxy = pickle.loads(metadata['deferred'])
+            arr = self._eval(proxy)
+            arr = np.ascontiguousarray(arr)
+            return arr
         sources = [x for x in metadata['sources'] \
                   if x['servername'] == self.metadata.servername]
         source = sources[0]
@@ -45,7 +52,14 @@ class BlazeRPC(server.RPC):
             arr = np.loadtxt(source['serverpath'])
         arr = np.ascontiguousarray(arr)
         return arr
-        
+    
+    def store(self, urls=[], data=[]):
+        for url, arr in zip(urls, data):
+            if isinstance(arr, array_proxy.BaseArrayNode):
+                obj = self.metadata.deferredarray_obj(arr)
+                self.metadata.create_dataset(url, obj)
+        return 'success', []
+    
     def get_data(self, metadata, data_slice=None):
         arr = self._get_data(metadata)
         response = {'type' : metadata['type']}
@@ -70,9 +84,7 @@ class BlazeRPC(server.RPC):
             arrinfo['dtype'] = arr.dtype
         return response, [arrinfo]
     
-    def eval(self, data):
-        log.info("called eval")
-        graph = data[0]
+    def _eval(self, graph):
         array_nodes = grapheval.find_nodes_of_type(
             graph, blaze_array_proxy.BlazeArrayProxy)
         for node in array_nodes:
@@ -86,6 +98,11 @@ class BlazeRPC(server.RPC):
                 return response, data
             node.set_array(data[0])
         value = np.ascontiguousarray(graph.eval())
+        return value
+    
+    def eval(self, data):
+        log.info("called eval")
+        value = self._eval(data[0])
         response = {'type' : "array"}
         response['shape'] = [int(x) for x in value.shape]
         return response, [value]

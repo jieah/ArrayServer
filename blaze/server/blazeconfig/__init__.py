@@ -169,9 +169,6 @@ class BlazeConfig(object):
             metadata['children'] = new_children
         return metadata
     
-    def load_native(path, url):
-        import pdb;pdb.set_trace()
-    
     def load_sources(self, sources):
         for prefix, source in sources.iteritems():
             if source['type'] == 'native':
@@ -206,7 +203,12 @@ class BlazeConfig(object):
     def group_obj(self, children):
         return {'type' : 'group',
                 'children' : children}
-            
+
+    def deferredarray_obj(self, proxyobj):
+        return {'type' : 'deferredarray',
+                'deferred' : pickle.dumps(proxyobj),
+                'sources' : []}
+    
     def array_obj(self, sources):
         return {'type' : 'array',
                 'sources' : sources}
