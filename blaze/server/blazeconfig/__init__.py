@@ -417,16 +417,28 @@ def generate_config_numpy(servername, blazeprefix, filepath, config):
             [config.source_obj(servername, 'numpy', serverpath=filepath)])
     blazeurl = blazeprefix
     config.create_dataset(blazeurl, obj)
+
+def generate_config_csv(servername, blazeprefix, filepath, config):
+    obj = config.array_obj(
+            [config.source_obj(servername, 'csv', serverpath=filepath)])
+    blazeurl = blazeprefix
+    config.create_dataset(blazeurl, obj)
     
 def load_file(servername, blazeprefix, filepath, config):
-    if tables.isHDF5File(filepath):
-        generate_config_hdf5(servername, blazeprefix, filepath, config)
-    elif os.path.splitext(filepath)[-1] in ['.npy', '.npz']:
-        generate_config_numpy(servername, blazeprefix, filepath, config)
-    return
+    try:
+        if tables.isHDF5File(filepath):
+            generate_config_hdf5(servername, blazeprefix, filepath, config)
+        elif os.path.splitext(filepath)[-1] in ['.npy', '.npz']:
+            generate_config_numpy(servername, blazeprefix, filepath, config)
+        else:
+            generate_config_csv(servername, blazeprefix, filepath, config)
+        return            
+    except Exception as e:
+        log.exception(e)
+
     
 def load_dir(servername, blazeprefix, datadir, config,
-             ignore=['redis.db', 'redis.log', 'blaze.config']):
+             ignore=['redis.db', 'redis.log', 'blaze.config', 'blaze.pid', 'CDX.pid']):
     ignore = set([os.path.join(datadir, x) for x in ignore])
     base_split_names = path_split(datadir)
     base_split_names = [x for x in base_split_names if x != '']

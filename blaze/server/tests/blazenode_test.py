@@ -40,6 +40,13 @@ class RouterTestCase(test_utils.BlazeWithDataTestCase):
         time.sleep(1) #let reconnects occur
         assert len(self.broker.nodes) == 1
         
+    def test_get_csv(self):
+        # rpcclient = client.BlazeClient(frontaddr)
+        # rpcclient.connect()
+        # responseobj, data = rpcclient.rpc(
+        #     'get', '/blaze/data/AAPL.txt')
+        pass
+    
     def test_get(self):
         rpcclient = client.BlazeClient(frontaddr)
         rpcclient.connect()
