@@ -172,6 +172,11 @@ class BlazeBroker(Broker, router.RPCRouter):
             protocol_helper=protocol_helper)
         log.info("Starting Blaze Broker")
         
+    def default_route(self, *args, **kwargs):
+        unpacked = kwargs['unpacked']
+        node = self.nodes.values()[0]        
+        self.send_to_address(unpacked, node.address)
+        
     def handle_frontend(self, frames):
         unpacked = self.ph.unpack_envelope_blaze(frames, deserialize_data=False)
         if unpacked['msgobj']['msgtype'] == 'rpcrequest':
@@ -182,10 +187,6 @@ class BlazeBroker(Broker, router.RPCRouter):
         unpacked['msgobj'] = self.ph.pack_rpc(self.ph.error_obj('cannot route'))
         self.ph.send_envelope_blaze(self.frontend, **unpacked)
 
-    def route_get_metadata_tree(self, path, depth=None, unpacked=None):
-        node = self.nodes.values()[0]        
-        self.send_to_address(unpacked, node.address)
-        
     def route_get(self, path, data_slice=None, unpacked=None):
         log.info("route_get")
         node = self.metadata.get_metadata(path)
@@ -205,6 +206,9 @@ class BlazeBroker(Broker, router.RPCRouter):
             self.frontend.send_multipart(messages)
 
     def route_eval(self, datastrs, unpacked=None):
+        ## alot of our routing logic makes no sense right now, because
+        ## we're sort of making it so we can handle sharded data, but
+        ## we really can't
         log.info("route_eval")
         graph = self.ph.deserialize_data(datastrs)[0]
         array_nodes = grapheval.find_nodes_of_type(
@@ -224,6 +228,10 @@ class BlazeBroker(Broker, router.RPCRouter):
                 log.info('sending blaze source eval to backend %s' % node)
                 self.send_to_address(unpacked, node.address)
                 
+    def route_store(self, urls=None, data=None, unpacked=None):
+        node = self.nodes.values[0]
+        self.send_to_address(unpacked, node.address)
+        
     def route_info(self, path, unpacked=None):
         log.info("route_info")
         node = self.metadata.get_metadata(path)
