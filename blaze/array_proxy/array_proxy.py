@@ -252,7 +252,23 @@ class ArrayNode(BaseArrayNode):
         if client is not None:
             return client.rpc('eval', data=[self])[1][0]            
         else:
-            return None
+            raise Exception, 'cannot seval without a client'            
+        
+    def save(self, url):
+        print 'STORING'
+        if client is not None:
+            client.rpc('store', urls=[url], data=[self])
+            self.url = url
+            msg, data = client.rpc('info', self.url)
+            info = data[0]
+            self.cached_shape = info['shape']
+            self.cached_dtype = info.get('dtype', None)
+        else:
+            raise Exception, 'cannot save without a client'
+        
+    def save_temp(self):
+        import uuid
+        self.save("/tmp/" + str(uuid.uuid4()))
         
     def _graph_call(self, funcname, args, kw):
         # Return the a graphnode around the unbound method, and supplying

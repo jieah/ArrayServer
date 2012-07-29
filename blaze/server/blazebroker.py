@@ -187,26 +187,32 @@ class BlazeBroker(Broker, router.RPCRouter):
         unpacked['msgobj'] = self.ph.pack_rpc(self.ph.error_obj('cannot route'))
         self.ph.send_envelope_blaze(self.frontend, **unpacked)
 
+    def can_process_url(self, url):
+        node = self.metadata.get_metadata(url)
+        if node['type'] == 'deferredarray':
+            return True
+        else:
+            servers = [x['servername'] for x in node['sources']]
+            if self.metadata.servername in servers:
+                return True
+            
+    def can_process(self, urls):
+        if all([self.can_process_url(x) for x in urls]):
+            return True
+        
     def route_get(self, path, data_slice=None, unpacked=None):
         log.info("route_get")
         node = self.metadata.get_metadata(path)
-        if node['type'] == 'deferredarray':
-            self.default_route(unpacked=unpacked)
-        elif node['type'] == 'group':
+        if node['type'] == 'group':
             unpacked['msgobj'] = self.ph.pack_rpc({'type' : 'group',
                                                    'children' : node['children']})
             messages = self.ph.pack_envelope_blaze(**unpacked)
             self.frontend.send_multipart(messages)
+        elif self.can_process_url(path):
+            self.default_route(unpacked=unpacked)
         else:
-            servers = [x['servername'] for x in node['sources']]
-            if self.metadata.servername in servers:
-                #we have this data, route it to one of our workers
-                node = self.nodes.values()[0]   # TODO some sort of fair queuing
-                log.info('sending blaze source eval to backend %s' % node)
-                self.send_to_address(unpacked, node.address)
-            else:
-                self.cannot_route(unpacked)
-
+            self.cannot_route(unpacked)
+        
     def route_eval(self, datastrs, unpacked=None):
         ## alot of our routing logic makes no sense right now, because
         ## we're sort of making it so we can handle sharded data, but
@@ -214,45 +220,24 @@ class BlazeBroker(Broker, router.RPCRouter):
         log.info("route_eval")
         graph = self.ph.deserialize_data(datastrs)[0]
         array_nodes = grapheval.find_nodes_of_type(
-            graph,
-            blaze_array_proxy.BlazeArrayProxy)
-        if len(array_nodes) == 0:
-            node = self.nodes.values[0]   # TODO some sort of fair queuing
-            log.info('sending bare eval to backend %s' % node)
-            self.send_to_address(unpacked, node.address)            
+            graph, blaze_array_proxy.BlazeArrayProxy)
+        urls = [x.url for x in array_nodes]
+        if self.can_process(urls):
+            self.default_route(unpacked=unpacked)
         else:
-            sources = []
-            for node in array_nodes:
-                sources += self.metadata.get_metadata(node.url)['sources']
-            servers = set([source['servername'] for source in sources])
-            if self.metadata.servername in servers:
-                node = self.nodes.values()[0]
-                log.info('sending blaze source eval to backend %s' % node)
-                self.send_to_address(unpacked, node.address)
+            self.cannot_route(unpacked)
                 
     def route_info(self, path, unpacked=None):
         log.info("route_info")
         node = self.metadata.get_metadata(path)
         if node['type'] != 'group':
-            servers = [x['servername'] for x in node['sources']]
-            if self.metadata.servername in servers:
-                #we have this data, route it to one of our workers
-                target = self.nodes.values()[0]   # TODO some sort of fair queuing
-                self.send_to_address(unpacked, target.address)
+            if self.can_process_url(path):
+                self.default_route(unpacked=unpacked)
             else:
-                self.cannot_route(unpacked)
+                self.cannot_route(unpacked)                
                 
     def route_summary(self, path, unpacked=None):
-        log.info("route_info")
-        node = self.metadata.get_metadata(path)
-        if node['type'] != 'group':
-            servers = [x['servername'] for x in node['sources']]
-            if self.metadata.servername in servers:
-                #we have this data, route it to one of our workers
-                target = self.nodes.values()[0]   # TODO some sort of fair queuing
-                self.send_to_address(unpacked, target.address)
-            else:
-                self.cannot_route(unpacked)
+        return self.route_info(path, unpacked=unpacked)
 
     def send_to_address(self, unpacked, ident):
         unpacked['envelope'].insert(0, ident)
