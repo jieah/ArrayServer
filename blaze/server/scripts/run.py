@@ -109,7 +109,8 @@ def write_pid(prefix, scriptname):
         with open(pidfile) as f:
             pid = int(f.read())
             if pid != os.getpid():
-                raise Exception, "%s already running on this at PID %s" % (scriptname, pid)
+                error = " %s already running on this at PID %s if this is incorrect, please remove %s "% (scriptname, pid, pidfile)
+                raise Exception, error
     else:
         with open(pidfile, 'w') as f:
             f.write(str(os.getpid()))
