@@ -41,11 +41,11 @@ class RouterTestCase(test_utils.BlazeWithDataTestCase):
         assert len(self.broker.nodes) == 1
         
     def test_get_csv(self):
-        # rpcclient = client.BlazeClient(frontaddr)
-        # rpcclient.connect()
-        # responseobj, data = rpcclient.rpc(
-        #     'get', '/blaze/data/AAPL.txt')
-        pass
+        rpcclient = client.BlazeClient(frontaddr)
+        rpcclient.connect()
+        responseobj, data = rpcclient.rpc(
+            'get', '/blaze/data/AAPL.txt')
+        assert data[0]['Open'][0] == 7.04
     
     def test_get(self):
         rpcclient = client.BlazeClient(frontaddr)

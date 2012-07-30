@@ -54,17 +54,30 @@ def default_serialize_data(data):
         data : pickled object
     """
     output = []
+    
+    def add_numpy(d):
+        metadata =  {'dtype' : d.dtype,
+                     'shape' : d.shape,
+                     'datatype' : 'numpy'}
+        metadata = pickle.dumps(metadata)
+        output.append(metadata)
+        output.append(d)
+        
+    def add_pickle(d):
+        output.append(pickle.dumps({'datatype' : 'pickle'}))
+        output.append(pickle.dumps(d, protocol=-1))
+        
     for d in data:
         if isinstance(d, np.ndarray):
-            metadata =  {'dtype' : d.dtype,
-                         'shape' : d.shape,
-                         'datatype' : 'numpy'}
-            metadata = pickle.dumps(metadata)
-            output.append(metadata)
-            output.append(d)
+            try:
+                temp = np.frombuffer(d, dtype=d.dtype)
+            except ValueError:
+                add_pickle(d)
+                continue
+            add_numpy(d)
         else:
-            output.append(pickle.dumps({'datatype' : 'pickle'}))
-            output.append(pickle.dumps(d))
+            add_pickle(d)
+            
     return output
 
 def default_deserialize_data(input):

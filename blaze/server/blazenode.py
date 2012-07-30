@@ -49,7 +49,8 @@ class BlazeRPC(server.RPC):
             arr = list(d.pull(source['tag']))[int(source['index'])]
             arr = np.load(arr)
         elif source_type == 'csv':
-            arr = np.loadtxt(source['serverpath'])
+            import pandas
+            arr = pandas.read_csv(source['serverpath']).to_records()
         arr = np.ascontiguousarray(arr)
         return arr
     
