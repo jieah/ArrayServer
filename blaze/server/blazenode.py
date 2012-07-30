@@ -30,8 +30,9 @@ class BlazeRPC(server.RPC):
         
     def _get_data(self, metadata, data_slice=None):
         if metadata['type'] == 'deferredarray':
-            proxy = pickle.loads(metadata['deferred'])
-            arr = self._eval(proxy)
+            arr = pickle.loads(metadata['deferred'])
+            if isinstance(arr, array_proxy.BaseArrayNode):            
+                arr = self._eval(arr)
             arr = np.ascontiguousarray(arr)
             return arr
         sources = [x for x in metadata['sources'] \
@@ -56,7 +57,7 @@ class BlazeRPC(server.RPC):
     
     def store(self, urls=[], data=[]):
         for url, arr in zip(urls, data):
-            if isinstance(arr, array_proxy.BaseArrayNode):
+            if isinstance(arr, (array_proxy.BaseArrayNode, np.ndarray)):
                 obj = self.metadata.deferredarray_obj(arr)
                 self.metadata.create_dataset(url, obj)
         return 'success', []
