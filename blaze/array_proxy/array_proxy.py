@@ -255,7 +255,6 @@ class ArrayNode(BaseArrayNode):
             raise Exception, 'cannot seval without a client'            
         
     def save(self, url):
-        print 'STORING'
         if client is not None:
             client.rpc('store', urls=[url], data=[self])
             self.url = url
