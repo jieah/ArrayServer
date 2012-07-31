@@ -27,14 +27,17 @@ class BlazeRPC(server.RPC):
         metadata = self.metadata.get_metadata(path)
         if metadata['type'] != 'group':
             return self.get_data(metadata, data_slice=data_slice)
+
+    def _get_deferred_data(self, metadata):
+        arr = pickle.loads(metadata['deferred'])
+        if isinstance(arr, array_proxy.BaseArrayNode):            
+            arr = self._eval(arr)
+        arr = np.ascontiguousarray(arr)
+        return arr
         
     def _get_data(self, metadata, data_slice=None):
         if metadata['type'] == 'deferredarray':
-            arr = pickle.loads(metadata['deferred'])
-            if isinstance(arr, array_proxy.BaseArrayNode):            
-                arr = self._eval(arr)
-            arr = np.ascontiguousarray(arr)
-            return arr
+            return self._get_deferred_data(metadata)
         sources = [x for x in metadata['sources'] \
                   if x['servername'] == self.metadata.servername]
         source = sources[0]
