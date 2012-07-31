@@ -7,6 +7,7 @@ from threading import Thread
 import constants
 import time
 import zmq
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -63,11 +64,19 @@ class Broker(Thread):
 
         self.frontend = self.context.socket(zmq.ROUTER)
         self.frontend.setsockopt(zmq.IDENTITY, self.frontid)
-        self.frontend.bind(frontaddr)
+        try:
+            self.frontend.bind(frontaddr)
+        except zmq.ZMQError:
+            log.error("This port %s, is not available, is another instance of blaze running on this port?", frontaddr)
+            raise
 
         self.backend = self.context.socket(zmq.ROUTER)
         self.backend.setsockopt(zmq.IDENTITY, self.backid)
-        self.backend.bind(backaddr)
+        try:
+            self.backend.bind(backaddr)
+        except zmq.ZMQError:
+            log.error("This port %s, is not available, is another instance of blaze running on this port?", backaddr)
+            raise
 
         self.poll_nodes = zmq.Poller()
         self.poll_nodes.register(self.backend, zmq.POLLIN)
