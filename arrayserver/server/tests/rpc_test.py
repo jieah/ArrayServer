@@ -5,12 +5,12 @@ import gevent_zeromq
 gevent_zeromq.monkey_patch()
 import zmq
 
-import blaze.protocol as protocol
-import blaze.server.rpc as rpc
-import blaze.server.rpc.client as client
-import blaze.server.rpc.server as server
-import blaze.server.blazebroker as blazebroker
-import blaze.server.redisutils as redisutils
+import arrayserver.protocol as protocol
+import arrayserver.server.rpc as rpc
+import arrayserver.server.rpc.client as client
+import arrayserver.server.rpc.server as server
+import arrayserver.server.arrayserverbroker as arrayserverbroker
+import arrayserver.server.redisutils as redisutils
 import unittest
 import simplejson
 import numpy as np
@@ -18,7 +18,7 @@ import logging
 import time
 import test_utils
 
-import blaze.server.blazeconfig as blazeconfig
+import arrayserver.server.arrayserverconfig as arrayserverconfig
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 logging.debug("starting")
@@ -64,7 +64,7 @@ class RPCTest(unittest.TestCase):
             pass
         self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
         time.sleep(0.1)
-        self.config = blazeconfig.BlazeConfig(self.servername, port=9000)
+        self.config = arrayserverconfig.ArrayServerConfig(self.servername, port=9000)
         
     def tearDown(self):
         self.redisproc.close()
@@ -82,7 +82,7 @@ class RPCTest(unittest.TestCase):
         time.sleep(0.2)
 
     def test_ppirate_rpc(self):
-        broker = blazebroker.Broker(frontaddr, backaddr, self.config,
+        broker = arrayserverbroker.Broker(frontaddr, backaddr, self.config,
                                     timeout=100.0)
         broker.start()
         self.broker = broker
@@ -101,7 +101,7 @@ class RPCTest(unittest.TestCase):
         assert (data[0] == newdata[0]).all()
 
     def test_ppirate_rpc_arbitrary_data(self):
-        broker = blazebroker.Broker(frontaddr, backaddr,
+        broker = arrayserverbroker.Broker(frontaddr, backaddr,
                                     self.config, timeout=100.0)
         broker.start()
         self.broker = broker

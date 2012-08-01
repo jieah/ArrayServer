@@ -9,11 +9,11 @@ import argparse
 import logging
 import shelve
 
-from blaze.server.blazebroker import BlazeBroker
+from arrayserver.server.arrayserverbroker import ArrayServerBroker
 
 def main():
 
-    parser = argparse.ArgumentParser(description='Start a Blaze Array Node process.')
+    parser = argparse.ArgumentParser(description='Start a ArrayServer Array Node process.')
 
     parser.add_argument(
         '-v', '--verbose', help='increase output verbosity', action='store_true'
@@ -34,7 +34,7 @@ def main():
     logging.basicConfig(level=log_level)
     log = logging.getLogger(__name__)
 
-    broker = BlazeBroker(
+    broker = ArrayServerBroker(
         "tcp://%s:%d" % (args.address, args.frontend),
         "tcp://%s:%d" % (args.address, args.backend)
     )

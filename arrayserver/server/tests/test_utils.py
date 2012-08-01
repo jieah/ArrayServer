@@ -4,11 +4,11 @@ import unittest
 import os
 import redis
 
-import blaze.server.redisutils as redisutils
-import blaze.server.blazeconfig as blazeconfig
-from blaze.server.blazeconfig import BlazeConfig, generate_config_hdf5, generate_config_numpy
-from blaze.server.blazebroker import BlazeBroker
-from blaze.server.blazenode import BlazeNode
+import arrayserver.server.redisutils as redisutils
+import arrayserver.server.arrayserverconfig as arrayserverconfig
+from arrayserver.server.arrayserverconfig import ArrayServerConfig, generate_config_hdf5, generate_config_numpy
+from arrayserver.server.arrayserverbroker import ArrayServerBroker
+from arrayserver.server.arrayservernode import ArrayServerNode
 
 backaddr = "inproc://#1"
 frontaddr = "inproc://#2"
@@ -31,13 +31,13 @@ def recv_timeout(socket, timeout):
 	else:
 		return None
 	
-class BlazeWithDataTestCase(unittest.TestCase):
+class ArrayServerWithDataTestCase(unittest.TestCase):
     def setUp(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
         self.hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
         self.numpypath = os.path.join(testroot, 'data', 'test.npy')
         sourceconfig = {
-            'blaze' : {
+            'arrayserver' : {
                 'type' : 'native',
                 'paths' : {
                     'data' : os.path.join(testroot, 'data')
@@ -47,12 +47,12 @@ class BlazeWithDataTestCase(unittest.TestCase):
         servername = 'myserver'
         self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
         wait_for_redis(9000)
-        self.config = blazeconfig.BlazeConfig(servername, port=9000,
+        self.config = arrayserverconfig.ArrayServerConfig(servername, port=9000,
                                               sourceconfig=sourceconfig)
-        broker = BlazeBroker(frontaddr, backaddr, self.config, timeout=100.0)
+        broker = ArrayServerBroker(frontaddr, backaddr, self.config, timeout=100.0)
         broker.start()
         self.broker = broker
-        rpcserver = BlazeNode(backaddr, 'testnodeident', self.config,
+        rpcserver = ArrayServerNode(backaddr, 'testnodeident', self.config,
                               interval=100.0)
         rpcserver.start()
         self.rpcserver = rpcserver

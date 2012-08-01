@@ -7,13 +7,13 @@ import gevent_zeromq
 gevent_zeromq.monkey_patch()
 import zmq
 
-import blaze.server.tests
-import blaze.server.redisutils as redisutils
-import blaze.server.blazeconfig as blazeconfig
-import blaze.server.blazeconfig.orderedyaml as orderedyaml
-import blaze.server.blazenode as blazenode
-import blaze.server.blazebroker as blazebroker
-import blaze.server.tests.test_utils as test_utils
+import arrayserver.server.tests
+import arrayserver.server.redisutils as redisutils
+import arrayserver.server.arrayserverconfig as arrayserverconfig
+import arrayserver.server.arrayserverconfig.orderedyaml as orderedyaml
+import arrayserver.server.arrayservernode as arrayservernode
+import arrayserver.server.arrayserverbroker as arrayserverbroker
+import arrayserver.server.tests.test_utils as test_utils
 
 import redis
 import collections
@@ -48,8 +48,8 @@ def start_redis(datapath, redis_port):
 #load a directory full of hdf5 files
 def build_config(datadir, disco=None):
     # datadir will have redis.db, redis.log, and a data directory,
-    # as well as a blaze.config
-    config_path = os.path.join(datadir, 'blaze.config')
+    # as well as a arrayserver.config
+    config_path = os.path.join(datadir, 'arrayserver.config')
     base_config = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                                'default_config.yaml')
     with open(base_config) as f:
@@ -65,8 +65,8 @@ def build_config(datadir, disco=None):
 import os.path
 import argparse
 def argparser():
-    parser = argparse.ArgumentParser(description='Start blaze')
-    datapath = os.path.abspath(os.path.dirname(blaze.server.tests.__file__))
+    parser = argparse.ArgumentParser(description='Start arrayserver')
+    datapath = os.path.abspath(os.path.dirname(arrayserver.server.tests.__file__))
     datapath = os.path.join(datapath, 'data')
     parser.add_argument('datapath', nargs="?", default=datapath)
     parser.add_argument(
@@ -117,10 +117,10 @@ def write_pid(prefix, scriptname):
     atexit.register(os.remove, pidfile)
     return True
 
-def start_blaze(args):
+def start_arrayserver(args):
     servername = args.server_name
     if args.datapath is None:
-        datapath = os.path.abspath(os.path.dirname(blaze.server.tests.__file__))
+        datapath = os.path.abspath(os.path.dirname(arrayserver.server.tests.__file__))
         datapath = os.path.join(datapath, 'data')
     else:
         datapath = os.path.abspath(args.datapath)
@@ -130,27 +130,27 @@ def start_blaze(args):
         proc = start_redis(datapath, args.redis_port)
     if not args.skip_config:
         build_config(datapath, disco=args.disco)
-        data = yaml.load(open(os.path.join(datapath, 'blaze.config')).read(),
+        data = yaml.load(open(os.path.join(datapath, 'arrayserver.config')).read(),
                          Loader=orderedyaml.OrderedDictYAMLLoader)
-        config = blazeconfig.BlazeConfig(servername, host=args.redis_host,
+        config = arrayserverconfig.ArrayServerConfig(servername, host=args.redis_host,
                                          port=args.redis_port, sourceconfig=data)
     else:
-        config = blazeconfig.BlazeConfig(servername, host=args.redis_host,
+        config = arrayserverconfig.ArrayServerConfig(servername, host=args.redis_host,
                                          port=args.redis_port)
     namespace = args.namespace
     frontaddr = args.front_address
     backaddr = args.back_address
-    broker = blazebroker.BlazeBroker(frontaddr, backaddr, config)
+    broker = arrayserverbroker.ArrayServerBroker(frontaddr, backaddr, config)
     broker.start()
-    node = blazenode.BlazeNode(backaddr, servername, config)
+    node = arrayservernode.ArrayServerNode(backaddr, servername, config)
     node.start()
     return proc, broker, node
     
 def main():
     parser = argparser()
     args = parser.parse_args()
-    write_pid('blaze')
-    redisproc, broker, node = start_blaze(args)
+    write_pid('arrayserver')
+    redisproc, broker, node = start_arrayserver(args)
     node.join()
     
 if __name__ == "__main__":

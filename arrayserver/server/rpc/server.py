@@ -2,13 +2,13 @@ import uuid
 import threading
 import operator
 import zmq
-import blaze.server.constants as constants
+import arrayserver.server.constants as constants
 import logging
 import time
 import cPickle as pickle
 import numpy as np
 
-import blaze.protocol as protocol
+import arrayserver.protocol as protocol
 import common
 
 
@@ -33,7 +33,7 @@ class ZMQWorker(threading.Thread):
         socket.connect(THREAD_ADDRESS)
         dataobjs = self.ph.deserialize_data(self.datastrs)
         responseobj, dataobjs = self.rpc.get_rpc_response(self.msgobj, dataobjs)
-        messages = self.ph.pack_blaze(self.clientid, self.reqid,
+        messages = self.ph.pack_arrayserver(self.clientid, self.reqid,
                                          responseobj, dataobjs)
         socket.send_multipart(messages)
         #log.debug("thread SENDING %s", messages)
@@ -158,7 +158,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         self.workers[unpacked['reqid']] = worker
         worker.start()
         statusobj = self.ph.working_obj(unpacked['reqid'])
-        self.ph.send_envelope_blaze(self.socket,
+        self.ph.send_envelope_arrayserver(self.socket,
                                     envelope=unpacked['envelope'],
                                     clientid=unpacked['clientid'],
                                     reqid=unpacked['reqid'],
@@ -176,7 +176,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
                 #this is the part of the loop we must protect
                 unpacked = {}
                 try:
-                    unpacked = self.ph.unpack_envelope_blaze(
+                    unpacked = self.ph.unpack_envelope_arrayserver(
                         messages,
                         deserialize_data=False)
                     self.envelopes[unpacked['reqid']] = unpacked['envelope']

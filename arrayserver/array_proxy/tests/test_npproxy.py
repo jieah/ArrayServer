@@ -1,12 +1,12 @@
 
 import numpy
-import blaze.array_proxy.npproxy as npp
+import arrayserver.array_proxy.npproxy as npp
 from numpy.testing.utils import *
 from numpy import pi
 import unittest
 
-from blaze.array_proxy.array_proxy import ArrayProxy, ArrayNode
-import blaze.array_proxy.grapheval as grapheval
+from arrayserver.array_proxy.array_proxy import ArrayProxy, ArrayNode
+import arrayserver.array_proxy.grapheval as grapheval
 
 
 def func1(np):

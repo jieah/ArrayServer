@@ -2,7 +2,7 @@ import uuid
 import threading
 import operator
 import zmq
-import blaze.server.constants as constants
+import arrayserver.server.constants as constants
 import logging
 import time
 import cPickle as pickle

@@ -3,14 +3,14 @@ import logging
 import shelve
 import os
 #wow our naming is ridiculous...
-import blaze.server.rpc.server as server
+from .rpc import server
 import orderedyaml
 import yaml
 log = logging.getLogger(__name__)
 import collections
 import numpy
-import posixpath as blazepath
-import blaze.server.redisutils as redisutils
+import posixpath as arrayserverpath
+from .import redisutils
 import redis
 import redis.exceptions 
 import cPickle as pickle
@@ -62,16 +62,16 @@ def path_history(path):
     currpath = path
     while currpath != "/":
         paths.append(currpath)
-        base = blazepath.dirname(currpath)
+        base = arrayserverpath.dirname(currpath)
         currpath = base
     paths.append("/")
     paths.reverse()
     return paths
 
-class BlazeConfigError(Exception):
+class ArrayServerConfigError(Exception):
     pass
 
-class BlazeConfig(object):
+class ArrayServerConfig(object):
     def __init__(self, servername, sourceconfig=None,
                  host='localhost', port=6709):
         """
@@ -79,7 +79,7 @@ class BlazeConfig(object):
         ---------
         servername : name of this server
         sourceconfig : usually loaded from yaml,
-            tells blaze which data sources it knows about
+            tells arrayserver which data sources it knows about
         """
         self.servername = servername
         self.sourceconfig = sourceconfig
@@ -123,7 +123,7 @@ class BlazeConfig(object):
                 group['children'].append(name)
                 self.set_pathmap_obj(path, group, client=pipe)
             else:
-                raise BlazeConfigError, "item at %s is not a group" % path
+                raise ArrayServerConfigError, "item at %s is not a group" % path
             pipe.execute()
             
     def is_group(self, path, client=None):
@@ -163,7 +163,7 @@ class BlazeConfig(object):
             new_children = []
             for child in metadata['children']:
                 newdepth = depth - 1 if depth is not None else None
-                childmetadata = self.get_tree(blazepath.join(path, child),
+                childmetadata = self.get_tree(arrayserverpath.join(path, child),
                                               newdepth)
                 new_children.append(childmetadata)
             metadata['children'] = new_children
@@ -173,7 +173,7 @@ class BlazeConfig(object):
         for prefix, source in sources.iteritems():
             if source['type'] == 'native':
                 for filegroup, path in source['paths'].iteritems():
-                    url = blazepath.join('/', prefix, filegroup)
+                    url = arrayserverpath.join('/', prefix, filegroup)
                     if os.path.isdir(path):
                         load_dir(self.servername, url, path, self)
                     else :
@@ -185,7 +185,7 @@ class BlazeConfig(object):
                 for tag in tags:
                     num_files = len(list(d.pull(tag)))
                     for n in range(num_files):
-                        url = blazepath.join('/', prefix, tag, str(n))
+                        url = arrayserverpath.join('/', prefix, tag, str(n))
                         log.error('ADDING %s', url)
                         sourceobj = self.source_obj(
                             self.servername, 'disco',
@@ -219,9 +219,9 @@ class BlazeConfig(object):
     
     def ensuregroups(self, path):
         if self.is_none(path):
-            parentpath = blazepath.dirname(path)
+            parentpath = arrayserverpath.dirname(path)
             parentkey = self.pathmap_key(parentpath)
-            name = blazepath.basename(path)
+            name = arrayserverpath.basename(path)
             self.ensuregroups(parentpath)
             self.add_to_group(parentpath, name)
         
@@ -259,7 +259,7 @@ class BlazeConfig(object):
         
     def list_children(self, path):
         paths = self.get_pathmap_obj(path)['children']
-        return [blazepath.join(path, x) for x in paths]
+        return [arrayserverpath.join(path, x) for x in paths]
             
     def add_source(self, path, source):
         with self.client.pipeline() as pipe:
@@ -341,7 +341,7 @@ class BlazeConfig(object):
             else:
                 self.set_reversemap_paths(sourcekey, paths, client=writeclient)
         else:
-            raise BlazeConfigError
+            raise ArrayServerConfigError
         
     def watch_tree(self, pipe, path):
         pipe.watch(self.pathmap_key(path))
@@ -351,8 +351,8 @@ class BlazeConfig(object):
                 self.watch_tree(pipe, cpath)
         
     def remove_url(self, path):
-        parentpath = blazepath.dirname(path)
-        name = blazepath.basename(path)
+        parentpath = arrayserverpath.dirname(path)
+        name = arrayserverpath.basename(path)
         with self.client.pipeline() as pipe:
             pipe.watch(self.reversemap_key())
             pipe.watch(self.pathmap_key(parentpath))
@@ -369,12 +369,12 @@ class BlazeConfig(object):
             
     def _remove_url(self, writeclient, path):
         print 'REMOVING', path
-        parentpath = blazepath.dirname(path)
-        name = blazepath.basename(path)        
+        parentpath = arrayserverpath.dirname(path)
+        name = arrayserverpath.basename(path)        
         metadata = self.get_metadata(path)
         if metadata['type'] == 'group':
             for childpath in metadata['children']:
-                self._remove_url(writeclient, blazepath.join(path, childpath))
+                self._remove_url(writeclient, arrayserverpath.join(path, childpath))
             self.delete_pathmap_obj(path, client=writeclient)
         else:
             for source in metadata['sources']:
@@ -382,8 +382,8 @@ class BlazeConfig(object):
 
                                 
 
-def generate_config_hdf5(servername, blazeprefix, datapath, config):
-    assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
+def generate_config_hdf5(servername, arrayserverprefix, datapath, config):
+    assert arrayserverprefix.startswith('/') and not arrayserverprefix.endswith('/')
     if tables.isHDF5File(datapath):
         f = tables.openFile(datapath)
     else:
@@ -397,7 +397,7 @@ def generate_config_hdf5(servername, blazeprefix, datapath, config):
             nodetype = 'table'
         else:
             log.error('unknown type %s', node)
-        serverpath = blazeprefix
+        serverpath = arrayserverprefix
         if node._v_pathname != "/": serverpath += node._v_pathname
         if nodetype == 'table':
             obj = config.array_obj([config.source_obj(servername,
@@ -412,35 +412,35 @@ def generate_config_hdf5(servername, blazeprefix, datapath, config):
                                                       localpath=node._v_pathname)])
             config.create_dataset(serverpath, obj)
 
-def generate_config_numpy(servername, blazeprefix, filepath, config):
-    assert blazeprefix.startswith('/') and not blazeprefix.endswith('/')
+def generate_config_numpy(servername, arrayserverprefix, filepath, config):
+    assert arrayserverprefix.startswith('/') and not arrayserverprefix.endswith('/')
     arr = numpy.load(filepath)
     obj = config.array_obj(
             [config.source_obj(servername, 'numpy', serverpath=filepath)])
-    blazeurl = blazeprefix
-    config.create_dataset(blazeurl, obj)
+    arrayserverurl = arrayserverprefix
+    config.create_dataset(arrayserverurl, obj)
 
-def generate_config_csv(servername, blazeprefix, filepath, config):
+def generate_config_csv(servername, arrayserverprefix, filepath, config):
     obj = config.array_obj(
             [config.source_obj(servername, 'csv', serverpath=filepath)])
-    blazeurl = blazeprefix
-    config.create_dataset(blazeurl, obj)
+    arrayserverurl = arrayserverprefix
+    config.create_dataset(arrayserverurl, obj)
     
-def load_file(servername, blazeprefix, filepath, config):
+def load_file(servername, arrayserverprefix, filepath, config):
     try:
         if tables.isHDF5File(filepath):
-            generate_config_hdf5(servername, blazeprefix, filepath, config)
+            generate_config_hdf5(servername, arrayserverprefix, filepath, config)
         elif os.path.splitext(filepath)[-1] in ['.npy', '.npz']:
-            generate_config_numpy(servername, blazeprefix, filepath, config)
+            generate_config_numpy(servername, arrayserverprefix, filepath, config)
         else:
-            generate_config_csv(servername, blazeprefix, filepath, config)
+            generate_config_csv(servername, arrayserverprefix, filepath, config)
         return            
     except Exception as e:
         log.exception(e)
 
     
-def load_dir(servername, blazeprefix, datadir, config,
-             ignore=['redis.db', 'redis.log', 'blaze.config', 'blaze.pid', 'CDX.pid']):
+def load_dir(servername, arrayserverprefix, datadir, config,
+             ignore=['redis.db', 'redis.log', 'arrayserver.config', 'arrayserver.pid', 'CDX.pid']):
     ignore = set([os.path.join(datadir, x) for x in ignore])
     base_split_names = path_split(datadir)
     base_split_names = [x for x in base_split_names if x != '']
@@ -451,21 +451,21 @@ def load_dir(servername, blazeprefix, datadir, config,
                 continue
             file_split_names = path_split(fpath)
             file_split_names = file_split_names[len(base_split_names):]
-            blaze_url = blazepath.join(blazeprefix, *file_split_names)
-            load_file(servername, blaze_url, fpath, config)
+            arrayserver_url = arrayserverpath.join(arrayserverprefix, *file_split_names)
+            load_file(servername, arrayserver_url, fpath, config)
     
     
 
 if __name__ == "__main__":
     """
     (pathmapfile, reversemapfile,
-     servername, blazeprefix, datapath) = sys.argv[1:]
+     servername, arrayserverprefix, datapath) = sys.argv[1:]
     """
     import shelve
     import sys
     (pathmapfile, reversemapfile,
-     servername, blazeprefix, datapath) = sys.argv[1:]
-    config = BlazeConfig(shelve.open(pathmapfile, 'c'),
+     servername, arrayserverprefix, datapath) = sys.argv[1:]
+    config = ArrayServerConfig(shelve.open(pathmapfile, 'c'),
                          shelve.open(reversemapfile, 'c'))
-    generate_config_hdf5(servername, blazeprefix, datapath, config)
+    generate_config_hdf5(servername, arrayserverprefix, datapath, config)
     config.sync()

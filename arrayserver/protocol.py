@@ -18,7 +18,7 @@ we have 3 protocol levels here
 1.  zeromq, functions exist to separate the envelope from the payload, and
 pack those up as well.
 
-2.  blaze protocol, blaze messages are the payloads of zeromq messages,
+2.  arrayserver protocol, arrayserver messages are the payloads of zeromq messages,
 and are packaged into clientid, reqid, msgobj (json), dataobjects -
 list data which can be serialized and deserialized
 
@@ -153,7 +153,7 @@ class ProtocolHelper(object):
         return {'msgtype' : 'rpcresponse',
                 'rpcresponse' : responseobj}
 
-    def unpack_blaze(self, messages, deserialize_data=True):
+    def unpack_arrayserver(self, messages, deserialize_data=True):
         clientid = messages[0]
         messageid = messages[1]
         msgstr = messages[2]
@@ -164,7 +164,7 @@ class ProtocolHelper(object):
         else:
             return [clientid, messageid, msgobj, datastrs]
 
-    def pack_blaze(self, client_id, message_id, msgobj, dataobjs,
+    def pack_arrayserver(self, client_id, message_id, msgobj, dataobjs,
                    serialize_data=True):
         try:
             msgstr = self.serialize_msg(msgobj)
@@ -194,26 +194,26 @@ class ProtocolHelper(object):
     def pack_envelope(self, envelope, payload):
         return envelope + [''] + payload
 
-    def pack_envelope_blaze(self, envelope=None, clientid=None, reqid=None,
+    def pack_envelope_arrayserver(self, envelope=None, clientid=None, reqid=None,
                             msgobj=None, dataobjs=None, datastrs=None):
         if envelope is None : envelope = []
         if msgobj is None : msgobj = {}
         if dataobjs is None:
             if datastrs is None: datastrs = []
-            msg = self.pack_blaze(clientid, reqid, msgobj,
+            msg = self.pack_arrayserver(clientid, reqid, msgobj,
                                   datastrs, serialize_data=False)
         else:
-            msg = self.pack_blaze(clientid, reqid, msgobj,
+            msg = self.pack_arrayserver(clientid, reqid, msgobj,
                                   dataobjs, serialize_data=True)
         msg = self.pack_envelope(envelope, msg)
         return msg
 
-    def unpack_envelope_blaze(self, messages, deserialize_data=True):
+    def unpack_envelope_arrayserver(self, messages, deserialize_data=True):
         envelope, messages = self.unpack_envelope(messages)
         (clientid,
          reqid,
          msgobj,
-         data) = self.unpack_blaze(messages, deserialize_data)
+         data) = self.unpack_arrayserver(messages, deserialize_data)
         if deserialize_data:
             unpackedmsg = dict(envelope=envelope, clientid=clientid, reqid=reqid,
                                msgobj=msgobj, dataobjs=data)
@@ -222,11 +222,13 @@ class ProtocolHelper(object):
                                msgobj=msgobj, datastrs=data)
         return unpackedmsg
 
-    def send_envelope_blaze(self, socket, **kwargs):
-        msg = self.pack_envelope_blaze(**kwargs)
+    def send_envelope_arrayserver(self, socket, **kwargs):
+        msg = self.pack_envelope_arrayserver(**kwargs)
         socket.send_multipart(msg)
 
-    def recv_envelope_blaze(self, socket, deserialize_data=True):
+    def recv_envelope_arrayserver(self, socket, deserialize_data=True):
         msgs = socket.recv_multipart()
-        return self.unpack_envelope_blaze(msgs, deserialize_data=deserialize_data)
+        return self.unpack_envelope_arrayserver(
+            msgs,
+            deserialize_data=deserialize_data)
     

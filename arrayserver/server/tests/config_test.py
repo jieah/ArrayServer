@@ -1,6 +1,6 @@
 import unittest
-import blaze.server.blazeconfig as blazeconfig
-import blaze.server.redisutils as redisutils
+import arrayserver.server.arrayserverconfig as arrayserverconfig
+import arrayserver.server.redisutils as redisutils
 import shelve
 import os
 import numpy as np
@@ -10,7 +10,7 @@ class ConfigTestCase(unittest.TestCase):
     def setUp(self):
         self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
         time.sleep(0.1)
-        self.config = blazeconfig.BlazeConfig('testserver', port=9000)
+        self.config = arrayserverconfig.ArrayServerConfig('testserver', port=9000)
         
     def tearDown(self):
         self.redisproc.close()
@@ -39,7 +39,7 @@ class ConfigTestCase(unittest.TestCase):
         testroot = os.path.abspath(os.path.dirname(__file__))
         hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
 
-        blazeconfig.generate_config_hdf5('myserver', '/data',
+        arrayserverconfig.generate_config_hdf5('myserver', '/data',
                                          hdfpath, self.config)
         node = self.config.get_metadata('/data/20100217/names')
         assert node['sources'][0]['localpath'] == '/20100217/names'
@@ -52,7 +52,7 @@ class ConfigTestCase(unittest.TestCase):
         testroot = os.path.abspath(os.path.dirname(__file__))
         path = os.path.join(testroot, 'data', 'test.npy')
 
-        blazeconfig.generate_config_numpy('testserver', '/data/test', path,
+        arrayserverconfig.generate_config_numpy('testserver', '/data/test', path,
                                           self.config)
         node = self.config.get_metadata('/data/test')
         assert node['sources'][0]['serverpath'] == path

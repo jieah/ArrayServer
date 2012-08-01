@@ -9,12 +9,12 @@ import argparse
 import logging
 import shelve
 
-from blaze.server.blazeconfig import BlazeConfig
-from blaze.server.blazenode import BlazeNode
+from arrayserver.server.arrayserverconfig import ArrayServerConfig
+from arrayserver.server.arrayservernode import ArrayServerNode
 
 def main():
 
-    parser = argparse.ArgumentParser(description='Start a Blaze Array Node process.')
+    parser = argparse.ArgumentParser(description='Start a ArrayServer Array Node process.')
 
     parser.add_argument(
         '-v', '--verbose', help='increase output verbosity', action='store_true'
@@ -40,7 +40,7 @@ def main():
 
     pathmap = shelve.open('%s/pathmap.db' % args.configdir, 'c')
     reversemap = shelve.open('%s/reversemap.db' % args.configdir, 'c')
-    config = BlazeConfig(pathmap, reversemap)
+    config = ArrayServerConfig(pathmap, reversemap)
 
-    node = BlazeNode('tcp://%s:%d' % (args.address, args.port), args.identity, config)
+    node = ArrayServerNode('tcp://%s:%d' % (args.address, args.port), args.identity, config)
     node.run()

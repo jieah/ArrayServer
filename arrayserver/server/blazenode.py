@@ -4,19 +4,19 @@ import os
 import rpc.server as server
 log = logging.getLogger(__name__)
 import collections
-import blazeconfig
+import arrayserverconfig
 import cPickle as pickle
 import uuid
 import numpy as np
-import blaze.array_proxy.blaze_array_proxy as blaze_array_proxy
-import blaze.array_proxy.array_proxy as array_proxy
-from blaze.array_proxy import grapheval
-import posixpath as blazepath
+import arrayserver.array_proxy.arrayserver_array_proxy as arrayserver_array_proxy
+import arrayserver.array_proxy.array_proxy as array_proxy
+from arrayserver.array_proxy import grapheval
+import posixpath as arrayserverpath
 
-class BlazeRPC(server.RPC):
+class ArrayServerRPC(server.RPC):
     def __init__(self, config, protocol_helper=None):
         self.metadata = config
-        super(BlazeRPC, self).__init__(protocol_helper=protocol_helper)
+        super(ArrayServerRPC, self).__init__(protocol_helper=protocol_helper)
 
     def get_metadata_tree(self, path, depth=None):
         return self.metadata.get_tree(path, depth=depth), []
@@ -69,7 +69,7 @@ class BlazeRPC(server.RPC):
         arr = self._get_data(metadata)
         response = {'type' : metadata['type']}
         if arr is None:
-            error = 'encountered unknown blaze array type %s' % source_type
+            error = 'encountered unknown arrayserver array type %s' % source_type
             error = self.ph.pack_rpc(self.ph.error_obj(error))
             return error, []
         response['shape'] = [int(x) for x in arr.shape]            
@@ -91,7 +91,7 @@ class BlazeRPC(server.RPC):
     
     def _eval(self, graph):
         array_nodes = grapheval.find_nodes_of_type(
-            graph, blaze_array_proxy.BlazeArrayProxy)
+            graph, arrayserver_array_proxy.ArrayServerArrayProxy)
         for node in array_nodes:
             # TODO we need to handle multiple physical sources
             metadata = self.metadata.get_metadata(node.url)
@@ -154,12 +154,12 @@ def continuous_summary(col):
         )
         
     
-class BlazeNode(server.ZParanoidPirateRPCServer):
+class ArrayServerNode(server.ZParanoidPirateRPCServer):
     def __init__(self, zmq_addr, identity, config, interval=1000.0,
                  protocol_helper=None, ctx=None):
-        rpc = BlazeRPC(config)
+        rpc = ArrayServerRPC(config)
         self.metadata = config
-        super(BlazeNode, self).__init__(
+        super(ArrayServerNode, self).__init__(
             zmq_addr, identity, rpc, interval=interval,
             protocol_helper=protocol_helper,
             ctx=ctx)
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     reversemap = shelve.open(sys.argv[2])
     addr = sys.argv[3]
     servername = sys.argv[4]
-    config = blazeconfig.BlazeConfig(pathmap, reversemap)
-    node = BlazeNode(addr, servername, config)
+    config = arrayserverconfig.ArrayServerConfig(pathmap, reversemap)
+    node = ArrayServerNode(addr, servername, config)
     node.run()
 

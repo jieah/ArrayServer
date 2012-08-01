@@ -2,14 +2,14 @@ import uuid
 import threading
 import operator
 import zmq
-from blaze.array_proxy.blaze_array_proxy import BlazeArrayProxy
-import blaze.server.constants as constants
+from arrayserver.array_proxy.arrayserver_array_proxy import ArrayServerArrayProxy
+import arrayserver.server.constants as constants
 import logging
 import time
 import cPickle as pickle
 import numpy as np
 
-import blaze.protocol as protocol
+import arrayserver.protocol as protocol
 import common
 
 log = logging.getLogger(__name__)
@@ -80,14 +80,14 @@ class ZDealerRPCClient(common.HasZMQSocket, BaseRPCClient):
         self.timeout = timeout
 
     def reqrep(self, requestobj, dataobj):
-        self.ph.send_envelope_blaze(self.socket, clientid=self.ident,
+        self.ph.send_envelope_arrayserver(self.socket, clientid=self.ident,
                                     reqid=str(uuid.uuid4()), msgobj=requestobj,
                                     dataobjs=dataobj)
         starttime = time.time()
         while True:
             socks = dict(self.poller.poll(timeout=self.timeout))
             if self.socket in socks:
-                unpacked = self.ph.recv_envelope_blaze(self.socket,
+                unpacked = self.ph.recv_envelope_arrayserver(self.socket,
                                                        deserialize_data=True)
                 if unpacked['msgobj'].get('msgtype') == 'rpcresponse':
                     return unpacked['msgobj'], unpacked['dataobjs']
@@ -97,18 +97,18 @@ class ZDealerRPCClient(common.HasZMQSocket, BaseRPCClient):
                 return [None, None]
 
 
-class BlazeClient(ZDealerRPCClient):
-    """Client class for connecting to Blaze Array Servers
+class ArrayServerClient(ZDealerRPCClient):
+    """Client class for connecting to ArrayServer Array Servers
     """
     def __init__(self, zmqaddr, timeout=1000.0,
                  ident=None, protocol_helper=None,
                  ctx=None):
-        super(BlazeClient, self).__init__(zmqaddr, timeout=timeout,
+        super(ArrayServerClient, self).__init__(zmqaddr, timeout=timeout,
             ident=ident, protocol_helper=protocol_helper, ctx=ctx)
 
 
-    def blaze_source(self, url):
-        return BlazeArrayProxy(url, self)
+    def arrayserver_source(self, url):
+        return ArrayServerArrayProxy(url, self)
 
 
 

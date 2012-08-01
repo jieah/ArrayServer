@@ -1,21 +1,21 @@
-from blaze.array_proxy.array_proxy import ArrayProxy, ArrayNode
+from array_proxy import ArrayProxy, ArrayNode
 import numpy as np
 client = None
 
-class BlazeArrayProxy(ArrayProxy):
-    """ A Python-level class that wraps a blaze data source.  All the methods
+class ArrayServerArrayProxy(ArrayProxy):
+    """ A Python-level class that wraps a arrayserver data source.  All the methods
     of an ndarray are present here, and most will return an ArrayNode, when called
-    on a Blaze server node that replicates the data mapping to the Blaze URL.
+    on a ArrayServer server node that replicates the data mapping to the ArrayServer URL.
 
     The ArrayProxy presents a generator array interface that sits on top of an
     actual numpy array.
     """
 
     def __init__(self, url, client=None):
-        """ Creates a new BlazeArrayProxy, given a Blaze URL as a parent
+        """ Creates a new ArrayServerArrayProxy, given a ArrayServer URL as a parent
         value.
         """
-        super(BlazeArrayProxy,self).__init__(None)
+        super(ArrayServerArrayProxy,self).__init__(None)
         self.url = url
         self.client = client
         msg, data = client.rpc('info', self.url)
@@ -38,7 +38,7 @@ class BlazeArrayProxy(ArrayProxy):
         return node
     
     def __setstate__(self, dict):
-        super(BlazeArrayProxy, self).__setstate__(dict)
+        super(ArrayServerArrayProxy, self).__setstate__(dict)
         self.func = None
 
     def __getstate__(self):

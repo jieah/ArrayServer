@@ -1,8 +1,8 @@
 import functools
 import uuid
-from blaze.array_proxy import array_proxy
-from blaze.array_proxy import blaze_array_proxy
-from blaze.array_proxy import grapheval
+from ..array_proxy import array_proxy
+from ..array_proxy import arrayserver_array_proxy
+from ..array_proxy import grapheval
 from threading import Thread
 import constants
 import time
@@ -18,9 +18,9 @@ HEARTBEAT_INTERVAL = constants.HEARTBEAT_INTERVAL
 PPP_READY = constants.PPP_READY
 PPP_HEARTBEAT = constants.PPP_HEARTBEAT
 
-import blaze.protocol as protocol
+from .. import protocol
 import rpc.router as router
-import blazeconfig
+import arrayserverconfig
 
 class Node(object):
     def __init__(self, address):
@@ -67,7 +67,7 @@ class Broker(Thread):
         try:
             self.frontend.bind(frontaddr)
         except zmq.ZMQError:
-            log.error("This port %s, is not available, is another instance of blaze running on this port?", frontaddr)
+            log.error("This port %s, is not available, is another instance of arrayserver running on this port?", frontaddr)
             raise
 
         self.backend = self.context.socket(zmq.ROUTER)
@@ -75,7 +75,7 @@ class Broker(Thread):
         try:
             self.backend.bind(backaddr)
         except zmq.ZMQError:
-            log.error("This port %s, is not available, is another instance of blaze running on this port?", backaddr)
+            log.error("This port %s, is not available, is another instance of arrayserver running on this port?", backaddr)
             raise
 
         self.poll_nodes = zmq.Poller()
@@ -112,7 +112,7 @@ class Broker(Thread):
                       'kwargs' : kwargs}
         reqid = str(uuid.uuid4())
         self.callbacks[reqid] = callback
-        multipart_msg = self.ph.pack_envelope_blaze(
+        multipart_msg = self.ph.pack_envelope_arrayserver(
             envelope=[targetident], clientid=self.backid,
             reqid=reqid, msgobj=requestobj, dataobjs=dataobj)
         self.backend.send_multipart(multipart_msg)
@@ -124,7 +124,7 @@ class Broker(Thread):
         elif len(msg) == 1 and msg[0] == PPP_READY:
             self.handle_ready(address, msg)
         else:
-            unpacked = self.ph.unpack_envelope_blaze(msg, deserialize_data=False)
+            unpacked = self.ph.unpack_envelope_arrayserver(msg, deserialize_data=False)
             if unpacked['clientid'] == self.backid and \
                    unpacked['msgobj']['msgtype'] == 'rpcresponse':
                 callback = self.callbacks.pop(unpacked['reqid'])
@@ -173,13 +173,13 @@ class Broker(Thread):
         self.backend.close()
 
 
-class BlazeBroker(Broker, router.RPCRouter):
+class ArrayServerBroker(Broker, router.RPCRouter):
     def __init__(self, frontaddr, backaddr, config, timeout=1000.0,
                  protocol_helper=None):
-        super(BlazeBroker, self).__init__(
+        super(ArrayServerBroker, self).__init__(
             frontaddr, backaddr, config, timeout=timeout,
             protocol_helper=protocol_helper)
-        log.info("Starting Blaze Broker")
+        log.info("Starting ArrayServer Broker")
         
     def default_route(self, *args, **kwargs):
         unpacked = kwargs['unpacked']
@@ -187,14 +187,14 @@ class BlazeBroker(Broker, router.RPCRouter):
         self.send_to_address(unpacked, node.address)
         
     def handle_frontend(self, frames):
-        unpacked = self.ph.unpack_envelope_blaze(frames, deserialize_data=False)
+        unpacked = self.ph.unpack_envelope_arrayserver(frames, deserialize_data=False)
         if unpacked['msgobj']['msgtype'] == 'rpcrequest':
             self.route(unpacked)
         
     def cannot_route(self, unpacked):
         del unpacked['datastrs']
         unpacked['msgobj'] = self.ph.pack_rpc(self.ph.error_obj('cannot route'))
-        self.ph.send_envelope_blaze(self.frontend, **unpacked)
+        self.ph.send_envelope_arrayserver(self.frontend, **unpacked)
 
     def can_process_url(self, url):
         node = self.metadata.get_metadata(url)
@@ -215,7 +215,7 @@ class BlazeBroker(Broker, router.RPCRouter):
         if node['type'] == 'group':
             unpacked['msgobj'] = self.ph.pack_rpc({'type' : 'group',
                                                    'children' : node['children']})
-            messages = self.ph.pack_envelope_blaze(**unpacked)
+            messages = self.ph.pack_envelope_arrayserver(**unpacked)
             self.frontend.send_multipart(messages)
         elif self.can_process_url(path):
             self.default_route(unpacked=unpacked)
@@ -229,7 +229,7 @@ class BlazeBroker(Broker, router.RPCRouter):
         log.info("route_eval")
         graph = self.ph.deserialize_data(datastrs)[0]
         array_nodes = grapheval.find_nodes_of_type(
-            graph, blaze_array_proxy.BlazeArrayProxy)
+            graph, arrayserver_array_proxy.ArrayServerArrayProxy)
         urls = [x.url for x in array_nodes]
         if self.can_process(urls):
             self.default_route(unpacked=unpacked)
@@ -250,13 +250,13 @@ class BlazeBroker(Broker, router.RPCRouter):
 
     def send_to_address(self, unpacked, ident):
         unpacked['envelope'].insert(0, ident)
-        self.ph.send_envelope_blaze(self.backend, **unpacked)
+        self.ph.send_envelope_arrayserver(self.backend, **unpacked)
         
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     import sys
-    b = BlazeBroker(sys.argv[1], sys.argv[2])
+    b = ArrayServerBroker(sys.argv[1], sys.argv[2])
     b.run()
 
 
