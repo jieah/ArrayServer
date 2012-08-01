@@ -12,6 +12,8 @@ import arrayserver.array_proxy.arrayserver_array_proxy as arrayserver_array_prox
 import arrayserver.array_proxy.array_proxy as array_proxy
 from arrayserver.array_proxy import grapheval
 import posixpath as arrayserverpath
+import pandas
+
 
 class ArrayServerRPC(server.RPC):
     def __init__(self, config, protocol_helper=None):
@@ -60,7 +62,8 @@ class ArrayServerRPC(server.RPC):
     
     def store(self, urls=[], data=[]):
         for url, arr in zip(urls, data):
-            if isinstance(arr, (array_proxy.BaseArrayNode, np.ndarray)):
+            if isinstance(arr, (array_proxy.BaseArrayNode, np.ndarray,
+                                pandas.DataFrame)):
                 obj = self.metadata.deferredarray_obj(arr)
                 self.metadata.create_dataset(url, obj)
         return 'success', []
