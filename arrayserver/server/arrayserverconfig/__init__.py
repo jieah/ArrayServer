@@ -3,14 +3,14 @@ import logging
 import shelve
 import os
 #wow our naming is ridiculous...
-from .rpc import server
+from ..rpc import server
 import orderedyaml
 import yaml
 log = logging.getLogger(__name__)
 import collections
 import numpy
 import posixpath as arrayserverpath
-from .import redisutils
+from .. import redisutils
 import redis
 import redis.exceptions 
 import cPickle as pickle
