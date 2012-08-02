@@ -190,7 +190,7 @@ class ArrayServerConfig(object):
                         sourceobj = self.source_obj(
                             self.servername, 'disco',
                             tag=tag, index=str(n), conn=source['connection'])
-                        obj = self.disco_obj(sources=[sourceobj])
+                        obj = self.array_obj(sources=[sourceobj])
                         self.create_dataset(url, obj)
     
     def source_obj(self, servername, type, **kwargs):
@@ -211,10 +211,6 @@ class ArrayServerConfig(object):
     
     def array_obj(self, sources):
         return {'type' : 'array',
-                'sources' : sources}
-    
-    def disco_obj(self, sources):
-        return {'type' : 'disco',
                 'sources' : sources}
     
     def ensuregroups(self, path):
@@ -426,6 +422,9 @@ def generate_config_csv(servername, arrayserverprefix, filepath, config):
     arrayserverurl = arrayserverprefix
     config.create_dataset(arrayserverurl, obj)
     
+def generate_config_pandashdf5(servername, arrayserverprefix, filepath, config):
+    pass
+    
 def load_file(servername, arrayserverprefix, filepath, config):
     try:
         if tables.isHDF5File(filepath):
@@ -440,7 +439,9 @@ def load_file(servername, arrayserverprefix, filepath, config):
 
     
 def load_dir(servername, arrayserverprefix, datadir, config,
-             ignore=['redis.db', 'redis.log', 'arrayserver.config', 'arrayserver.pid', 'CDX.pid']):
+             ignore=['redis.db', 'redis.log',
+                     'arrayserver.config',
+                     'arrayserver.pid', 'CDX.pid']):
     ignore = set([os.path.join(datadir, x) for x in ignore])
     base_split_names = path_split(datadir)
     base_split_names = [x for x in base_split_names if x != '']
@@ -451,7 +452,8 @@ def load_dir(servername, arrayserverprefix, datadir, config,
                 continue
             file_split_names = path_split(fpath)
             file_split_names = file_split_names[len(base_split_names):]
-            arrayserver_url = arrayserverpath.join(arrayserverprefix, *file_split_names)
+            arrayserver_url = arrayserverpath.join(arrayserverprefix,
+                                                   *file_split_names)
             load_file(servername, arrayserver_url, fpath, config)
     
     
