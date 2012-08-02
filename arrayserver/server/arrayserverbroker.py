@@ -236,7 +236,7 @@ class ArrayServerBroker(Broker, router.RPCRouter):
         else:
             self.cannot_route(unpacked)
                 
-    def route_info(self, path, unpacked=None):
+    def route_summary(self, path, unpacked=None):
         log.info("route_info")
         node = self.metadata.get_metadata(path)
         if node['type'] != 'group':
@@ -244,10 +244,6 @@ class ArrayServerBroker(Broker, router.RPCRouter):
                 self.default_route(unpacked=unpacked)
             else:
                 self.cannot_route(unpacked)                
-                
-    def route_summary(self, path, unpacked=None):
-        return self.route_info(path, unpacked=unpacked)
-
     def send_to_address(self, unpacked, ident):
         unpacked['envelope'].insert(0, ident)
         self.ph.send_envelope_arrayserver(self.backend, **unpacked)

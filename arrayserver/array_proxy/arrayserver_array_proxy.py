@@ -18,10 +18,6 @@ class ArrayServerArrayProxy(ArrayProxy):
         super(ArrayServerArrayProxy,self).__init__(None)
         self.url = url
         self.client = client
-        msg, data = client.rpc('info', self.url)
-        info = data[0]
-        self.cached_shape = info['shape']
-        self.cached_dtype = info.get('dtype', None)
 
     def seval(self):
         if hasattr(self, 'client'):

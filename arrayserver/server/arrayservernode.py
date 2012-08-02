@@ -82,15 +82,15 @@ class ArrayServerRPC(server.RPC):
             data_slice = slice(*data_slice)
             return response, [arr[data_slice]]
 
-    def info(self, path):
-        metadata = self.metadata.get_metadata(path)
-        arr = self._get_data(metadata)
-        response = {'type' : metadata['type']}
-        arrinfo = {}
-        arrinfo['shape'] = arr.shape
-        if hasattr(arr, 'dtype'):
-            arrinfo['dtype'] = arr.dtype
-        return response, [arrinfo]
+    # def info(self, path):
+    #     metadata = self.metadata.get_metadata(path)
+    #     arr = self._get_data(metadata)
+    #     response = {'type' : metadata['type']}
+    #     arrinfo = {}
+    #     arrinfo['shape'] = arr.shape
+    #     if hasattr(arr, 'dtype'):
+    #         arrinfo['dtype'] = arr.dtype
+    #     return response, [arrinfo]
     
     def _eval(self, graph):
         array_nodes = grapheval.find_nodes_of_type(
