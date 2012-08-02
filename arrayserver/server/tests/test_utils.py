@@ -36,6 +36,7 @@ class ArrayServerWithDataTestCase(unittest.TestCase):
         testroot = os.path.abspath(os.path.dirname(__file__))
         self.hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
         self.numpypath = os.path.join(testroot, 'data', 'test.npy')
+        self.pandaspath = os.path.join(testroot, 'data', 'pandas.hdf5')
         sourceconfig = {
             'arrayserver' : {
                 'type' : 'native',
