@@ -72,19 +72,19 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
         assert 'prices' in responseobj['children']
         assert 'dates' in responseobj['children']
 
-    def test_eval_with_hdf5_sources(self):
-        rpcclient = client.ArrayServerClient(frontaddr)
-        rpcclient.connect()
-        x = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100217/prices')
-        y = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100218/prices')
-        z = npp.sin((x-y)**3)
-        responseobj, data = rpcclient.rpc('eval', data=[z])
-        assert responseobj['type'] == 'array'
+    # def test_eval_with_hdf5_sources(self):
+    #     rpcclient = client.ArrayServerClient(frontaddr)
+    #     rpcclient.connect()
+    #     x = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100217/prices')
+    #     y = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100218/prices')
+    #     z = npp.sin((x-y)**3)
+    #     responseobj, data = rpcclient.rpc('eval', data=[z])
+    #     assert responseobj['type'] == 'array'
 
-        xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]
-        yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
-        zz = np.sin((xx-yy)**3)
-        assert (zz == data[0]).all()
+    #     xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]
+    #     yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
+    #     zz = np.sin((xx-yy)**3)
+    #     assert (zz == data[0]).all()
         
     def test_store_array_node(self):
         rpcclient = client.ArrayServerClient(frontaddr)
@@ -111,18 +111,18 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
         assert data[0] == 0
         assert data[-1] == 19
     
-    def test_eval_with_numpy_sources(self):
-        rpcclient = client.ArrayServerClient(frontaddr)
-        rpcclient.connect()
-        x = rpcclient.arrayserver_source('/arrayserver/data/test.npy')
-        y = npp.sin(x**3)
-        responseobj, data = rpcclient.rpc('eval', data=[y])
-        assert responseobj['shape'] == [100]
-        assert responseobj['type'] == 'array'
+    # def test_eval_with_numpy_sources(self):
+    #     rpcclient = client.ArrayServerClient(frontaddr)
+    #     rpcclient.connect()
+    #     x = rpcclient.arrayserver_source('/arrayserver/data/test.npy')
+    #     y = npp.sin(x**3)
+    #     responseobj, data = rpcclient.rpc('eval', data=[y])
+    #     assert responseobj['shape'] == [100]
+    #     assert responseobj['type'] == 'array'
 
-        xx = np.load(self.numpypath)
-        yy = npp.sin(xx**3)
-        assert (yy == data[0]).all()
+    #     xx = np.load(self.numpypath)
+    #     yy = npp.sin(xx**3)
+    #     assert (yy == data[0]).all()
         
     def test_get_tree(self):
         rpcclient = client.ArrayServerClient(frontaddr)

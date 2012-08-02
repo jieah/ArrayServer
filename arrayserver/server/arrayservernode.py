@@ -36,7 +36,7 @@ class ArrayServerRPC(server.RPC):
             arr = self._eval(arr)
         arr = np.ascontiguousarray(arr)
         return arr
-        
+
     def _get_data(self, metadata, data_slice=None):
         if metadata['type'] == 'deferredarray':
             return self._get_deferred_data(metadata)
@@ -46,7 +46,12 @@ class ArrayServerRPC(server.RPC):
         source_type = source['type']
         arr = None
         if source_type == 'hdf5':
-            arr = tables.openFile(source['serverpath']).getNode(source['localpath'])
+            arr = tables.openFile(source['serverpath'])
+            arr = arr.getNode(source['localpath'])
+        elif source_type == 'pandashdf5':
+            store = pandas.HDFStore(source['serverpath'])
+            arr = store[source['hdfstorekey']]
+            store.close()
         elif source_type == 'numpy':
             arr = np.load(source['serverpath'])
         elif source_type == 'disco':
@@ -70,6 +75,8 @@ class ArrayServerRPC(server.RPC):
     
     def get_data(self, metadata, data_slice=None):
         arr = self._get_data(metadata)
+        if not isinstance(arr, pandas.DataFrame):
+            arr = pandas.DataFrame(arr)
         response = {'type' : metadata['type']}
         if arr is None:
             error = 'encountered unknown arrayserver array type %s' % source_type

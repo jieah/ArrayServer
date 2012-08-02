@@ -1,4 +1,5 @@
 import tables
+import pandas
 import logging
 import shelve
 import os
@@ -370,7 +371,8 @@ class ArrayServerConfig(object):
         metadata = self.get_metadata(path)
         if metadata['type'] == 'group':
             for childpath in metadata['children']:
-                self._remove_url(writeclient, arrayserverpath.join(path, childpath))
+                self._remove_url(
+                    writeclient, arrayserverpath.join(path, childpath))
             self.delete_pathmap_obj(path, client=writeclient)
         else:
             for source in metadata['sources']:
@@ -385,28 +387,15 @@ def generate_config_hdf5(servername, arrayserverprefix, datapath, config):
     else:
         return None
     for node in f.walkNodes("/"):
-        if isinstance(node, tables.group.Group):
-            nodetype = 'group'
-        elif isinstance(node, tables.array.Array):
-            nodetype = 'array'
-        elif isinstance(node, tables.table.Table):
-            nodetype = 'table'
-        else:
-            log.error('unknown type %s', node)
-        serverpath = arrayserverprefix
-        if node._v_pathname != "/": serverpath += node._v_pathname
-        if nodetype == 'table':
-            obj = config.array_obj([config.source_obj(servername,
-                                                      'hdf5',
-                                                      serverpath=datapath,
-                                                      localpath=node._v_pathname)])
-            config.create_dataset(serverpath, obj)
-        elif nodetype == 'array':
-            obj = config.array_obj([config.source_obj(servername,
-                                                      'hdf5',
-                                                      serverpath=datapath,
-                                                      localpath=node._v_pathname)])
-            config.create_dataset(serverpath, obj)
+        if isinstance(node, (tables.array.Array, tables.table.Table)):
+            arrayserverurl = arrayserverprefix
+            if node._v_pathname != "/": arrayserverurl += node._v_pathname
+            obj = config.array_obj([config.source_obj(
+                servername,
+                'hdf5',
+                serverpath=datapath,
+                localpath=node._v_pathname)])
+            config.create_dataset(arrayserverurl, obj)
 
 def generate_config_numpy(servername, arrayserverprefix, filepath, config):
     assert arrayserverprefix.startswith('/') and not arrayserverprefix.endswith('/')
@@ -422,13 +411,33 @@ def generate_config_csv(servername, arrayserverprefix, filepath, config):
     arrayserverurl = arrayserverprefix
     config.create_dataset(arrayserverurl, obj)
     
-def generate_config_pandashdf5(servername, arrayserverprefix, filepath, config):
-    pass
+def generate_config_pandashdf5(servername, arrayserverprefix, datapath, config):
+    assert arrayserverprefix.startswith('/')
+    assert not arrayserverprefix.endswith('/')
+    store = pandas.HDFStore(datapath) 
+    for k in store.keys():
+        arrayserverurl = arrayserverpath.join(arrayserverprefix, k)
+        obj = config.array_obj([config.source_obj(
+            servername,
+            'pandashdf5',
+            serverpath=datapath,
+            hdfstorekey=k)])
+        config.create_dataset(arrayserverurl, obj)
+    store.close()
+        
+def is_pandas_hdf5(fname):
+    with tables.openFile(fname) as f:
+        return 'pandas_type' in f.getNode('/')._v_children.values()[0]._v_attrs
     
 def load_file(servername, arrayserverprefix, filepath, config):
     try:
         if tables.isHDF5File(filepath):
-            generate_config_hdf5(servername, arrayserverprefix, filepath, config)
+            if is_pandas_hdf5(filepath):
+                generate_config_pandashdf5(
+                    servername, arrayserverprefix, filepath, config)
+            else:
+                generate_config_hdf5(
+                    servername, arrayserverprefix, filepath, config)
         elif os.path.splitext(filepath)[-1] in ['.npy', '.npz']:
             generate_config_numpy(servername, arrayserverprefix, filepath, config)
         else:
