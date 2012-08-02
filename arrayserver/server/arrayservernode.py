@@ -46,12 +46,14 @@ class ArrayServerRPC(server.RPC):
         source_type = source['type']
         arr = None
         if source_type == 'hdf5':
-            arr = tables.openFile(source['serverpath'])
-            arr = arr.getNode(source['localpath'])
+            with tables.openFile(source['serverpath']) as f:
+                arr = f.getNode(source['localpath'])[:]
         elif source_type == 'pandashdf5':
-            store = pandas.HDFStore(source['serverpath'])
-            arr = store[source['hdfstorekey']]
-            store.close()
+            try:
+                store = pandas.HDFStore(source['serverpath'])
+                arr = store[source['hdfstorekey']]
+            finally:
+                store.close()
         elif source_type == 'numpy':
             arr = np.load(source['serverpath'])
         elif source_type == 'disco':
@@ -61,8 +63,7 @@ class ArrayServerRPC(server.RPC):
             arr = np.load(arr)
         elif source_type == 'csv':
             import pandas
-            arr = pandas.read_csv(source['serverpath']).to_records()
-        arr = np.ascontiguousarray(arr)
+            arr = pandas.read_csv(source['serverpath'])
         return arr
     
     def store(self, urls=[], data=[]):
@@ -133,16 +134,8 @@ class ArrayServerRPC(server.RPC):
         arr = data[0]
         summary = {}
         summary['shape'] = arr.shape
-        if arr.dtype.names:
-            colnames = arr.dtype.names
-            cols = [arr[x] for x in colnames]            
-        else:
-            if len(arr.shape) == 1:
-                colnames = [0]
-                cols = [arr]
-            else:
-                colnames = range(arr.shape[1])
-                cols = [arr[x] for x in colnames]
+        colnames = arr.columns.tolist()
+        cols = [arr[x] for x in colnames]
         summary['colnames'] = colnames
         colsummary = {}
         for cname, col in zip(colnames, cols):

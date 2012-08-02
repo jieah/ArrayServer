@@ -54,18 +54,17 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
             'get', '/arrayserver/data/gold.hdf5/20100217/names')
         data = data[0]
         assert len(data) == 3
-        assert 'GDX' in data
+        assert data[0][0] == 'GDX'
         responseobj, data = rpcclient.rpc(
             'get', '/arrayserver/data/gold.hdf5/20100217/names',
             data_slice=(0, 1, None))
         data = data[0]
         assert len(data) == 1
-        assert 'GDX' in data
+        assert data[0][0] == 'GDX'        
 
         responseobj, data = rpcclient.rpc(
             'get', '/arrayserver/data/gold.hdf5/20100217'
             )
-
 
         assert responseobj['type'] == 'group'
         assert 'names' in responseobj['children']
