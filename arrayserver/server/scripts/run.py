@@ -120,7 +120,8 @@ def write_pid(prefix, scriptname):
 def start_arrayserver(args):
     servername = args.server_name
     if args.datapath is None:
-        datapath = os.path.abspath(os.path.dirname(arrayserver.server.tests.__file__))
+        datapath = os.path.abspath(os.path.dirname(
+            arrayserver.server.tests.__file__))
         datapath = os.path.join(datapath, 'data')
     else:
         datapath = os.path.abspath(args.datapath)
@@ -130,13 +131,16 @@ def start_arrayserver(args):
         proc = start_redis(datapath, args.redis_port)
     if not args.skip_config:
         build_config(datapath, disco=args.disco)
-        data = yaml.load(open(os.path.join(datapath, 'arrayserver.config')).read(),
-                         Loader=orderedyaml.OrderedDictYAMLLoader)
-        config = arrayserverconfig.ArrayServerConfig(servername, host=args.redis_host,
-                                         port=args.redis_port, sourceconfig=data)
+        data = yaml.load(
+            open(os.path.join(datapath, 'arrayserver.config')).read(),
+            Loader=orderedyaml.OrderedDictYAMLLoader)
+        config = arrayserverconfig.ArrayServerConfig(
+            servername, host=args.redis_host,
+            port=args.redis_port, sourceconfig=data)
     else:
-        config = arrayserverconfig.ArrayServerConfig(servername, host=args.redis_host,
-                                         port=args.redis_port)
+        config = arrayserverconfig.ArrayServerConfig(
+            servername, host=args.redis_host,
+            port=args.redis_port)
     namespace = args.namespace
     frontaddr = args.front_address
     backaddr = args.back_address

@@ -34,7 +34,6 @@ class ArrayServerRPC(server.RPC):
         arr = pickle.loads(metadata['deferred'])
         if isinstance(arr, array_proxy.BaseArrayNode):            
             arr = self._eval(arr)
-        arr = np.ascontiguousarray(arr)
         return arr
 
     def _get_data(self, metadata, data_slice=None):
@@ -48,36 +47,32 @@ class ArrayServerRPC(server.RPC):
         if source_type == 'hdf5':
             with tables.openFile(source['serverpath']) as f:
                 arr = f.getNode(source['localpath'])[:]
+                arr = pandas.DataFrame(arr)
         elif source_type == 'pandashdf5':
             try:
                 store = pandas.HDFStore(source['serverpath'])
                 arr = store[source['hdfstorekey']]
             finally:
                 store.close()
-        elif source_type == 'numpy':
-            arr = np.load(source['serverpath'])
         elif source_type == 'disco':
             import disco.ddfs as ddfs
             d = ddfs.DDFS(master=source['conn'])
             arr = list(d.pull(source['tag']))[int(source['index'])]
             arr = np.load(arr)
         elif source_type == 'csv':
-            import pandas
             arr = pandas.read_csv(source['serverpath'])
+        elif source_type == 'numpy':
+            arr = np.load(source['serverpath'])
         return arr
     
     def store(self, urls=[], data=[]):
         for url, arr in zip(urls, data):
-            if isinstance(arr, (array_proxy.BaseArrayNode, np.ndarray,
-                                pandas.DataFrame)):
-                obj = self.metadata.deferredarray_obj(arr)
-                self.metadata.create_dataset(url, obj)
+            obj = self.metadata.deferredarray_obj(arr)
+            self.metadata.create_dataset(url, obj)
         return 'success', []
     
     def get_data(self, metadata, data_slice=None):
         arr = self._get_data(metadata)
-        if not isinstance(arr, pandas.DataFrame):
-            arr = pandas.DataFrame(arr)
         response = {'type' : metadata['type']}
         if arr is None:
             error = 'encountered unknown arrayserver array type %s' % source_type
@@ -89,39 +84,6 @@ class ArrayServerRPC(server.RPC):
         else:
             data_slice = slice(*data_slice)
             return response, [arr[data_slice]]
-
-    # def info(self, path):
-    #     metadata = self.metadata.get_metadata(path)
-    #     arr = self._get_data(metadata)
-    #     response = {'type' : metadata['type']}
-    #     arrinfo = {}
-    #     arrinfo['shape'] = arr.shape
-    #     if hasattr(arr, 'dtype'):
-    #         arrinfo['dtype'] = arr.dtype
-    #     return response, [arrinfo]
-    
-    def _eval(self, graph):
-        array_nodes = grapheval.find_nodes_of_type(
-            graph, arrayserver_array_proxy.ArrayServerArrayProxy)
-        for node in array_nodes:
-            # TODO we need to handle multiple physical sources
-            metadata = self.metadata.get_metadata(node.url)
-            response, data = self.get_data(metadata)
-            if len(data) == 0:
-                # some sort of error..
-                # length checking to see if there is an error is hacky
-                # :hugo
-                return response, data
-            node.set_array(data[0])
-        value = np.ascontiguousarray(graph.eval())
-        return value
-    
-    def eval(self, data):
-        log.info("called eval")
-        value = self._eval(data[0])
-        response = {'type' : "array"}
-        response['shape'] = [int(x) for x in value.shape]
-        return response, [value]
     
     def summary(self, path):
         metadata = self.metadata.get_metadata(path)

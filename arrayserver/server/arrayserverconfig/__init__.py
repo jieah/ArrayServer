@@ -74,7 +74,9 @@ class ArrayServerConfigError(Exception):
 
 class ArrayServerConfig(object):
     def __init__(self, servername, sourceconfig=None,
-                 host='localhost', port=6709):
+                 host='localhost', port=6709,
+                 default_pytables_file=None,
+                 default_hdf5_file=None):
         """
         Parameters
         ---------

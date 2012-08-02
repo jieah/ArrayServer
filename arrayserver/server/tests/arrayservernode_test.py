@@ -14,6 +14,7 @@ import test_utils
 import os
 import shelve
 import tables
+import pandas
 
 import arrayserver.server.rpc as rpc
 import arrayserver.server.rpc.client as client
@@ -40,13 +41,20 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
         time.sleep(1) #let reconnects occur
         assert len(self.broker.nodes) == 1
         
+    def test_get_pandas(self):
+        rpcclient = client.ArrayServerClient(frontaddr)
+        rpcclient.connect()
+        responseobj, data = rpcclient.rpc(
+            'get', '/arrayserver/data/pandas.hdf5/a')
+        assert isinstance(data[0], pandas.DataFrame)
+        
     def test_get_csv(self):
         rpcclient = client.ArrayServerClient(frontaddr)
         rpcclient.connect()
         responseobj, data = rpcclient.rpc(
             'get', '/arrayserver/data/AAPL.txt')
         assert data[0]['Open'][0] == 7.04
-    
+        
     def test_get(self):
         rpcclient = client.ArrayServerClient(frontaddr)
         rpcclient.connect()
@@ -71,44 +79,14 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
         assert 'prices' in responseobj['children']
         assert 'dates' in responseobj['children']
 
-    # def test_eval_with_hdf5_sources(self):
-    #     rpcclient = client.ArrayServerClient(frontaddr)
-    #     rpcclient.connect()
-    #     x = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100217/prices')
-    #     y = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100218/prices')
-    #     z = npp.sin((x-y)**3)
-    #     responseobj, data = rpcclient.rpc('eval', data=[z])
-    #     assert responseobj['type'] == 'array'
-
-    #     xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]
-    #     yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
-    #     zz = np.sin((xx-yy)**3)
-    #     assert (zz == data[0]).all()
-        
-    def test_store_array_node(self):
+    def test_store_pandas(self):
         rpcclient = client.ArrayServerClient(frontaddr)
         rpcclient.connect()
-        x = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100217/prices')
-        y = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100218/prices')
-        z = npp.sin((x-y)**3)
-        rpcclient.rpc('store', urls=['/tmp/mytempdata'], data=[z])
-        responseobj, data = rpcclient.rpc('get', '/tmp/mytempdata')
-            
-        xx = tables.openFile(self.hdfpath).getNode('/20100217/prices')[:]
-        yy = tables.openFile(self.hdfpath).getNode('/20100218/prices')[:]
-        zz = np.sin((xx-yy)**3)
-        assert (zz == data[0]).all()
-        
-    def test_store_numpy(self):
-        rpcclient = client.ArrayServerClient(frontaddr)
-        rpcclient.connect()
-        x = np.arange(20)
+        x = pandas.DataFrame(np.arange(20))
         rpcclient.rpc('store', urls=['/tmp/mytempdata'], data=[x])
         responseobj, data = rpcclient.rpc('get', '/tmp/mytempdata')
         data = data[0]
         assert len(data) == 20
-        assert data[0] == 0
-        assert data[-1] == 19
     
     # def test_eval_with_numpy_sources(self):
     #     rpcclient = client.ArrayServerClient(frontaddr)
@@ -140,7 +118,7 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
         assert summary['colnames'] == [0, 1, 2]
         assert '0' in columnsummary
         assert '2' in columnsummary
-        assert columnsummary['1']['mean'] == 64.07833333333333
+        assert columnsummary['1']['mean'] == 109.39397501601509
     
 if __name__ == "__main__":
     unittest.main()
