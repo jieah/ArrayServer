@@ -107,9 +107,9 @@ class ArrayServerClient(ZDealerRPCClient):
             ident=ident, protocol_helper=protocol_helper, ctx=ctx)
 
 
-    def arrayserver_source(self, url):
-        return ArrayServerArrayProxy(url, self)
-
+    def get(self, url):
+        return self.rpc('get', url)[1][0]
+    
 
 
 
