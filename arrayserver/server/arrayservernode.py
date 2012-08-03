@@ -29,14 +29,20 @@ class ArrayServerRPC(server.RPC):
         metadata = self.metadata.get_metadata(path)
         if metadata['type'] != 'group':
             return self.get_data(metadata, data_slice=data_slice)
+        
+    def numpy_to_pandas(self, ndarray):
+        arr = pandas.DataFrame(ndarray)
+        arr.columns = pandas.Index([str(x) for x in arr.columns])
+        return arr
 
     def _get_deferred_data(self, metadata):
         arr = pickle.loads(metadata['deferred'])
         if isinstance(arr, array_proxy.BaseArrayNode):            
             arr = self._eval(arr)
         return arr
-
+    
     def _get_data(self, metadata, data_slice=None):
+        #total mess! (hugo's fault)
         if metadata['type'] == 'deferredarray':
             return self._get_deferred_data(metadata)
         sources = [x for x in metadata['sources'] \
@@ -47,7 +53,6 @@ class ArrayServerRPC(server.RPC):
         if source_type == 'hdf5':
             with tables.openFile(source['serverpath']) as f:
                 arr = f.getNode(source['localpath'])[:]
-                arr = pandas.DataFrame(arr)
         elif source_type == 'pandashdf5':
             try:
                 store = pandas.HDFStore(source['serverpath'])
@@ -58,7 +63,10 @@ class ArrayServerRPC(server.RPC):
             import disco.ddfs as ddfs
             d = ddfs.DDFS(master=source['conn'])
             arr = list(d.pull(source['tag']))[int(source['index'])]
-            arr = np.load(arr)
+            try:
+                arr = np.load(arr)
+            except IOError:
+                arr = pandas.read_csv(source['serverpath'])                
         elif source_type == 'csv':
             arr = pandas.read_csv(source['serverpath'])
         elif source_type == 'numpy':
@@ -96,8 +104,18 @@ class ArrayServerRPC(server.RPC):
         arr = data[0]
         summary = {}
         summary['shape'] = arr.shape
-        colnames = arr.columns.tolist()
-        cols = [arr[x] for x in colnames]
+        if isinstance(arr, pandas.DataFrame):
+            colnames = arr.columns.tolist()
+            cols = [arr[x] for x in colnames]
+        elif isinstance(arr, np.ndarray):
+            if arr.dtype.names:
+                colnames = arr.dtype.names
+                cols = [arr[x] for x in colnames]
+            else:
+                if len(arr.shape) == 1:
+                    arr = np.expand_dims(arr, -1)
+                colnames = range(arr.shape[1])
+                cols = [arr[:,x] for x in colnames]
         summary['colnames'] = colnames
         colsummary = {}
         for cname, col in zip(colnames, cols):

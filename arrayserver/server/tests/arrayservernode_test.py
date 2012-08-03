@@ -62,13 +62,13 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
             'get', '/arrayserver/data/gold.hdf5/20100217/names')
         data = data[0]
         assert len(data) == 3
-        assert data[0][0] == 'GDX'
+        assert data[0] == 'GDX'
         responseobj, data = rpcclient.rpc(
             'get', '/arrayserver/data/gold.hdf5/20100217/names',
             data_slice=(0, 1, None))
         data = data[0]
         assert len(data) == 1
-        assert data[0][0] == 'GDX'        
+        assert data[0] == 'GDX'        
 
         responseobj, data = rpcclient.rpc(
             'get', '/arrayserver/data/gold.hdf5/20100217'
