@@ -69,9 +69,10 @@ def default_serialize_data(data):
         
     for d in data:
         if isinstance(d, np.ndarray):
+            d = np.ascontiguousarray(d)
             try:
                 temp = np.frombuffer(d, dtype=d.dtype)
-            except ValueError:
+            except ValueError, TypeError:
                 add_pickle(d)
                 continue
             add_numpy(d)
