@@ -13,7 +13,7 @@ import arrayserver.array_proxy.array_proxy as array_proxy
 from arrayserver.array_proxy import grapheval
 import posixpath as arrayserverpath
 import pandas
-
+import cStringIO
 
 class ArrayServerRPC(server.RPC):
     def __init__(self, config, protocol_helper=None):
@@ -66,7 +66,9 @@ class ArrayServerRPC(server.RPC):
             try:
                 arr = np.load(arr)
             except IOError:
-                arr = pandas.read_csv(source['serverpath'])                
+                arr.seek(0)
+                arr = cStringIO.StringIO(arr.read())
+                arr = pandas.read_csv(arr)
         elif source_type == 'csv':
             arr = pandas.read_csv(source['serverpath'])
         elif source_type == 'numpy':
