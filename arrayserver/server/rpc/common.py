@@ -36,7 +36,7 @@ class HasZMQSocket(object):
         if hasattr(self, 'socket'):
             self.socket.setsockopt(zmq.LINGER,0)
             self.socket.close()
-
+            time.sleep(0.1)
     def connect(self):
         self.socket = self.ctx.socket(self.socket_type)
         if hasattr(self, 'identity'):

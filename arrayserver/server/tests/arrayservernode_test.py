@@ -51,32 +51,27 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
         rpcclient = client.ArrayServerClient(frontaddr)
         rpcclient.connect()
         responseobj, data = rpcclient.rpc(
-            'get', '/arrayserver/data/AAPL.txt')
-        assert data[0]['Open'][0] == 7.04
+            'get', '/arrayserver/data/csv/LeadershipAction.csv')
+        assert data[0]['tot_rec'][500] == u'$34,000.90'
         
     def test_get(self):
         rpcclient = client.ArrayServerClient(frontaddr)
         rpcclient.connect()
-        responseobj, data = rpcclient.rpc(
-            'get', '/arrayserver/data/gold.hdf5/20100217/names')
+        responseobj, data = rpcclient.rpc('get', '/arrayserver/data/random.hdf5/a')
         data = data[0]
-        assert len(data) == 3
-        assert data[0] == 'GDX'
+        assert np.all(data == self.hdf5data_a)
         responseobj, data = rpcclient.rpc(
-            'get', '/arrayserver/data/gold.hdf5/20100217/names',
+            'get',
+            '/arrayserver/data/random.hdf5/a',
             data_slice=(0, 1, None))
         data = data[0]
-        assert len(data) == 1
-        assert data[0] == 'GDX'        
-
+        assert np.all(data == self.hdf5data_a[:1])
         responseobj, data = rpcclient.rpc(
-            'get', '/arrayserver/data/gold.hdf5/20100217'
+            'get', '/arrayserver/data/random.hdf5'
             )
-
         assert responseobj['type'] == 'group'
-        assert 'names' in responseobj['children']
-        assert 'prices' in responseobj['children']
-        assert 'dates' in responseobj['children']
+        assert 'a' in responseobj['children']
+        assert 'b' in responseobj['children']
 
     def test_store_pandas(self):
         rpcclient = client.ArrayServerClient(frontaddr)
@@ -103,21 +98,20 @@ class RouterTestCase(test_utils.ArrayServerWithDataTestCase):
     def test_get_tree(self):
         rpcclient = client.ArrayServerClient(frontaddr)
         rpcclient.connect()
-        tree, _ = rpcclient.rpc('get_metadata_tree', '/arrayserver/data/gold.hdf5')
-        assert tree['children'][0]['children'][0]['type'] == 'array'
+        tree, _ = rpcclient.rpc('get_metadata_tree', '/arrayserver/data/random.hdf5')
+        assert tree['children'][0]['type'] == 'array'
 
     def test_summary_stats(self):
         rpcclient = client.ArrayServerClient(frontaddr)
         rpcclient.connect()
-        prices = rpcclient.arrayserver_source('/arrayserver/data/gold.hdf5/20100217/prices')
-        responseobj, data = rpcclient.rpc('summary', '/arrayserver/data/gold.hdf5/20100217/prices')
+        responseobj, data = rpcclient.rpc('summary',
+                                          '/arrayserver/data/random.hdf5/a')
         summary = responseobj['summary']
         columnsummary = responseobj['colsummary']
-        assert summary['shape'] == [1561, 3]
-        assert summary['colnames'] == [0, 1, 2]
+        assert summary['shape'] == list(self.hdf5data_a.shape)
+        assert summary['colnames'] == [0, 1]
         assert '0' in columnsummary
-        assert '2' in columnsummary
-        assert columnsummary['1']['mean'] == 109.39397501601509
+        assert columnsummary['1']['mean'] == 0.43365650027370206
     
 if __name__ == "__main__":
     unittest.main()

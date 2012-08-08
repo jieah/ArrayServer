@@ -9,8 +9,10 @@ import time
 class ConfigTestCase(unittest.TestCase):
     def setUp(self):
         self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
+        testroot = os.path.abspath(os.path.dirname(__file__))        
         time.sleep(0.1)
         self.config = arrayserverconfig.ArrayServerConfig('testserver', port=9000)
+        self.hdfpath = os.path.join(testroot, 'data', 'random.hdf5')
         
     def tearDown(self):
         self.redisproc.close()
@@ -37,16 +39,16 @@ class ConfigTestCase(unittest.TestCase):
         
     def test_load_from_hdf5(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
-        hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
+        hdfpath = os.path.join(testroot, 'data', 'random.hdf5')
 
         arrayserverconfig.generate_config_hdf5('myserver', '/data',
                                          hdfpath, self.config)
-        node = self.config.get_metadata('/data/20100217/names')
-        assert node['sources'][0]['localpath'] == '/20100217/names'
+        node = self.config.get_metadata('/data/a')
+        assert node['sources'][0]['localpath'] == '/a'
         assert node['sources'][0]['type'] == 'hdf5'
-        assert '/data/20100217/names' in self.config.get_dependencies()
-        assert '/data/20100217/names' in self.config.get_dependencies(
-            localpath='/20100217/names')
+        assert '/data/a' in self.config.get_dependencies()
+        assert '/data/a' in self.config.get_dependencies(
+            localpath='/a')
         
     def test_load_from_numpy(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
@@ -90,17 +92,16 @@ class ConfigTestCase(unittest.TestCase):
 
     def test_load_from_sources(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
-        hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
+        hdfpath = self.hdfpath
         sources = {'data' : {'type' : 'native',
                              'paths' : {'test' : hdfpath}}}
         self.config.load_sources(sources)
-        node = self.config.get_metadata('/data/test/20100217/names')
-        assert node['sources'][0]['localpath'] == '/20100217/names'
+        node = self.config.get_metadata('/data/test/a')
+        assert node['sources'][0]['localpath'] == '/a'
         assert node['sources'][0]['type'] == 'hdf5'
-        assert '/data/test/20100217/names' in self.config.get_dependencies()
-        assert '/data/test/20100217/names' in self.config.get_dependencies(
-            localpath='/20100217/names')
-        
+        assert '/data/test/a' in self.config.get_dependencies()
+        assert '/data/test/a' in self.config.get_dependencies(
+            localpath='/a')
     def test_remove_url(self):
         a = np.arange(200)
         appendable = False

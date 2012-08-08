@@ -3,7 +3,7 @@ import zmq
 import unittest
 import os
 import redis
-
+import tables
 import arrayserver.server.redisutils as redisutils
 import arrayserver.server.arrayserverconfig as arrayserverconfig
 from arrayserver.server.arrayserverconfig import ArrayServerConfig, generate_config_hdf5, generate_config_numpy
@@ -34,9 +34,12 @@ def recv_timeout(socket, timeout):
 class ArrayServerWithDataTestCase(unittest.TestCase):
     def setUp(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
-        self.hdfpath = os.path.join(testroot, 'data', 'gold.hdf5')
+        self.hdfpath = os.path.join(testroot, 'data', 'random.hdf5')
         self.numpypath = os.path.join(testroot, 'data', 'test.npy')
         self.pandaspath = os.path.join(testroot, 'data', 'pandas.hdf5')
+        with tables.openFile(self.hdfpath) as f:
+            self.hdf5data_a = f.getNode('/a')[:]
+            self.hdf5data_b = f.getNode('/a')[:]            
         sourceconfig = {
             'arrayserver' : {
                 'type' : 'native',

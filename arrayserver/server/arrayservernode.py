@@ -134,19 +134,19 @@ class ArrayServerRPC(server.RPC):
     
 def continuous_summary(col):
     try:
-        mean=np.mean(col).tolist(),
+        mean=np.mean(col).tolist()
     except Exception as e:
         mean = None
     try:
-        std=np.std(col).tolist(),
+        std=np.std(col).tolist()
     except Exception as e:
         std = None
     try:
-        max=np.max(col).tolist(),
+        max=np.max(col).tolist()
     except Exception as e:
         max = None
     try:
-        min=np.min(col).tolist(),
+        min=np.min(col).tolist()
     except Exception as e:
         min = None
     return dict(mean=mean, std=std, max=max, min=min)
