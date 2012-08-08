@@ -61,15 +61,21 @@ class BaseRPCClient(object):
                       'args' : args,
                       'kwargs' : kwargs}
         responseobj, dataobj = self.reqrep(requestobj, dataobj)
-        return self.ph.unpack_rpc(responseobj), dataobj
-
+        if responseobj is None:
+            log.debug('error, got no response for %s', requestobj)
+            return None, []
+        try:
+            return self.ph.unpack_rpc(responseobj), dataobj
+        except:
+            import pdb;pdb.set_trace()
+        
 class ZDealerRPCClient(common.HasZMQSocket, BaseRPCClient):
     """rpc client using a REQ socket.
     expects to connect to some other REP socket
     """
     socket_type = zmq.DEALER
     do_bind = False
-    def __init__(self, zmqaddr, timeout=1000.0,
+    def __init__(self, zmqaddr, timeout=3000.0,
                  ident=None, protocol_helper=None,
                  ctx=None):
         if protocol_helper is None:

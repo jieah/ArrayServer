@@ -6,7 +6,6 @@ gevent_zeromq.monkey_patch()
 import zmq
 
 import unittest
-import simplejson
 import numpy as np
 import logging
 import time

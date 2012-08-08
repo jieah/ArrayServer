@@ -135,6 +135,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
 
     def connect(self):
         super(ZParanoidPirateRPCServer, self).connect()
+        time.sleep(self.interval/1000.0)
         self.socket.send(constants.PPP_READY)
 
     def handle_heartbeat(self):
@@ -168,8 +169,7 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
         socks = dict(self.poller.poll(timeout=self.interval))
         if socks.get(self.socket) == zmq.POLLIN:
             messages = self.socket.recv_multipart()
-            if len(messages) == 1 and messages[0] == constants.PPP_HEARTBEAT:
-                #log.debug('heartbeat received')
+            if len(messages) == 1:
                 pass
             else:
                 #messages from the outside world come here.
@@ -188,9 +188,9 @@ class ZParanoidPirateRPCServer(common.HasZMQSocket, threading.Thread):
                         self.envelopes.pop(reqid)
             self.last_heartbeat_recvd = time.time()
         else:
-            if time.time() > self.last_heartbeat_recvd + 2*constants.HEARTBEAT_INTERVAL:
-                log.info('Heartbeat failure, attempting to reconnect in %0.2f sec...', self.interval/1000)
-                time.sleep(self.interval/1000)
+            if time.time() > self.last_heartbeat_recvd + constants.HEARTBEAT_LIVENESS:
+                log.info('Heartbeat failure, attempting to reconnect');
+                log.info('reconnecting')
                 self.reconnect()
 
         if self.thread_socket in socks:

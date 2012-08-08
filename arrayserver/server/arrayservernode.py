@@ -124,19 +124,32 @@ class ArrayServerRPC(server.RPC):
             try:
                 colsummary[cname] = continuous_summary(col)
             except Exception as e:
+                import pdb;pdb.set_trace()
                 log.exception(e)
                 
         summary = {'summary' : summary,
                    'colsummary' : colsummary}
+        log.debug ("returning %s for %s", summary, path)
         return summary, []
     
 def continuous_summary(col):
-    return dict(
+    try:
         mean=np.mean(col).tolist(),
+    except Exception as e:
+        mean = None
+    try:
         std=np.std(col).tolist(),
+    except Exception as e:
+        std = None
+    try:
         max=np.max(col).tolist(),
-        min=np.min(col).tolist()
-        )
+    except Exception as e:
+        max = None
+    try:
+        min=np.min(col).tolist(),
+    except Exception as e:
+        min = None
+    return dict(mean=mean, std=std, max=max, min=min)
         
     
 class ArrayServerNode(server.ZParanoidPirateRPCServer):
