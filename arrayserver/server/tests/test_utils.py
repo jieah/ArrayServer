@@ -30,10 +30,12 @@ def recv_timeout(socket, timeout):
 		return socket.recv_multipart()
 	else:
 		return None
-	
+
 class ArrayServerWithDataTestCase(unittest.TestCase):
+    testroot = os.path.abspath(os.path.dirname(__file__))    
     def setUp(self):
-        testroot = os.path.abspath(os.path.dirname(__file__))
+        import arrayserver.server.tests
+        testroot = os.path.abspath(os.path.dirname(arrayserver.server.tests.__file__))
         self.hdfpath = os.path.join(testroot, 'data', 'random.hdf5')
         self.numpypath = os.path.join(testroot, 'data', 'test.npy')
         self.pandaspath = os.path.join(testroot, 'data', 'pandas.hdf5')
