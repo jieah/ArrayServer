@@ -42,14 +42,11 @@ class ArrayServerWithDataTestCase(unittest.TestCase):
         with tables.openFile(self.hdfpath) as f:
             self.hdf5data_a = f.getNode('/a')[:]
             self.hdf5data_b = f.getNode('/a')[:]            
-        sourceconfig = {
-            'arrayserver' : {
-                'type' : 'native',
-                'paths' : {
-                    'data' : os.path.join(testroot, 'data')
-                    }
-                }
-            }
+        sourceconfig = [
+            {'prefix' : '/arrayserver/data',
+             'type' : 'native',
+             'paths' : [os.path.join(testroot, 'data')]}
+            ]
         servername = 'myserver'
         self.redisproc = redisutils.RedisProcess(9000, '/tmp', save=False)
         wait_for_redis(9000)

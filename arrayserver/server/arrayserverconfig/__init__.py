@@ -96,7 +96,8 @@ class ArrayServerConfig(object):
                 self.set_pathmap_obj("/", self.group_obj([]), client=pipe)
             pipe.execute()
         if sourceconfig is not None:
-            self.load_sources(sourceconfig)
+            for source in sourceconfig:
+                self.load_source(**source)
         
     def get_reversemap_paths(self, sourcekey, client=None):
         if client is None: client = self.client
@@ -172,29 +173,28 @@ class ArrayServerConfig(object):
             metadata['children'] = new_children
         return metadata
     
-    def load_sources(self, sources):
-        for prefix, source in sources.iteritems():
-            if source['type'] == 'native':
-                for filegroup, path in source['paths'].iteritems():
-                    url = arrayserverpath.join('/', prefix, filegroup)
-                    if os.path.isdir(path):
-                        load_dir(self.servername, url, path, self)
-                    else :
-                        load_file(self.servername, url, path, self)
-            if source['type'] == 'disco':
-                import disco.ddfs as ddfs
-                d = ddfs.DDFS(master=source['connection'])
-                tags = d.list()
-                for tag in tags:
-                    num_files = len(list(d.pull(tag)))
-                    for n in range(num_files):
-                        url = arrayserverpath.join('/', prefix, tag, str(n))
-                        log.error('ADDING %s', url)
-                        sourceobj = self.source_obj(
-                            self.servername, 'disco',
-                            tag=tag, index=str(n), conn=source['connection'])
-                        obj = self.array_obj(sources=[sourceobj])
-                        self.create_dataset(url, obj)
+    def load_source(self, **source):
+        prefix = source['prefix']
+        if source['type'] == 'native':
+            for path in source['paths']:
+                if os.path.isdir(path):
+                    load_dir(self.servername, prefix, path, self)
+                else :
+                    load_file(self.servername, prefix, path, self)
+        if source['type'] == 'disco':
+            import disco.ddfs as ddfs
+            d = ddfs.DDFS(master=source['connection'])
+            tags = d.list()
+            for tag in tags:
+                num_files = len(list(d.pull(tag)))
+                for n in range(num_files):
+                    url = arrayserverpath.join('/', prefix, tag, str(n))
+                    log.error('ADDING %s', url)
+                    sourceobj = self.source_obj(
+                        self.servername, 'disco',
+                        tag=tag, index=str(n), conn=source['connection'])
+                    obj = self.array_obj(sources=[sourceobj])
+                    self.create_dataset(url, obj)
     
     def source_obj(self, servername, type, **kwargs):
         base = {'type' : type,

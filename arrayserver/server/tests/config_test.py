@@ -93,9 +93,10 @@ class ConfigTestCase(unittest.TestCase):
     def test_load_from_sources(self):
         testroot = os.path.abspath(os.path.dirname(__file__))
         hdfpath = self.hdfpath
-        sources = {'data' : {'type' : 'native',
-                             'paths' : {'test' : hdfpath}}}
-        self.config.load_sources(sources)
+        source = {'prefix' : "/data/test",
+                  'type' : 'native',
+                  'paths' : [hdfpath]}
+        self.config.load_source(**source)
         node = self.config.get_metadata('/data/test/a')
         assert node['sources'][0]['localpath'] == '/a'
         assert node['sources'][0]['type'] == 'hdf5'

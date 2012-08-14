@@ -55,10 +55,10 @@ def build_config(datadir, disco=None):
     with open(base_config) as f:
         config = f.read()
     config = config % {'datapath' : datadir}
-    yamlconfig =yaml.load(config, Loader=orderedyaml.OrderedDictYAMLLoader)
+    yamlconfig = yaml.load(config, Loader=orderedyaml.OrderedDictYAMLLoader)
     if disco is not None:
-        yamlconfig['disco'] = collections.OrderedDict([('type', 'disco'),
-                                                       ('connection', disco)])
+        yamlconfig.append(collections.OrderedDict([('type', 'disco'),
+                                                   ('connection', disco)])
     with open(config_path, 'w+') as f:
         f.write(yaml.dump(yamlconfig))
             
