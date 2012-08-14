@@ -451,7 +451,7 @@ def load_file(servername, arrayserverprefix, filepath, config):
 
     
 def load_dir(servername, arrayserverprefix, datadir, config,
-             ignore=['redis.db', 'redis.log',
+             ignore=['.gitignore', 'redis.db', 'redis.log',
                      'arrayserver.config',
                      'arrayserver.pid', 'CDX.pid']):
     ignore = set([os.path.join(datadir, x) for x in ignore])

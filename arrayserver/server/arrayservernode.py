@@ -19,7 +19,11 @@ class ArrayServerRPC(server.RPC):
     def __init__(self, config, protocol_helper=None):
         self.metadata = config
         super(ArrayServerRPC, self).__init__(protocol_helper=protocol_helper)
-
+        
+    def load_source(self, **source):
+        self.metadata.load_source(**source)
+        return 'success', []
+    
     def get_metadata_tree(self, path, depth=None):
         return self.metadata.get_tree(path, depth=depth), []
     

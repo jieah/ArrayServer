@@ -1,5 +1,6 @@
 [
-type : native
-  paths :
-    data : %(datapath)s
+{
+type : native,
+paths : ["%(datapath)s"]
+}
 ]
