@@ -174,14 +174,15 @@ class ArrayServerConfig(object):
         return metadata
     
     def load_source(self, **source):
-        prefix = source['prefix']
-        if source['type'] == 'native':
+        prefix = source.get('prefix', '/arrayserver')
+        sourcetype = source.get('type', 'native')
+        if sourcetype == 'native':
             for path in source['paths']:
                 if os.path.isdir(path):
                     load_dir(self.servername, prefix, path, self)
                 else :
                     load_file(self.servername, prefix, path, self)
-        if source['type'] == 'disco':
+        if sourcetype == 'disco':
             import disco.ddfs as ddfs
             d = ddfs.DDFS(master=source['connection'])
             tags = d.list()
